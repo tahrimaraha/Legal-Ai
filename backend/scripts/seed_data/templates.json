@@ -1,0 +1,200 @@
+[
+  {
+    "id": "tmpl-legal-notice-rent",
+    "slug": "legal-notice-rent",
+    "titleBn": "বাড়িভাড়া বৃদ্ধি ও বেআইনি উচ্ছেদ প্রতিরোধে লিগ্যাল নোটিশ",
+    "titleEn": "Advocate Legal Notice: Unlawful Eviction & Arbitrary Rent Hike",
+    "categoryBn": "বাড়িভাড়া ও দেওয়ানি বিরোধ",
+    "categoryEn": "Tenancy & Civil Disputes",
+    "descriptionBn": "বাড়িওয়ালা কর্তৃক নোটিশ ছাড়া উচ্ছেদ কিংবা অন্যায় ভাড়া বৃদ্ধির চেষ্টার বিরুদ্ধে আনুষ্ঠানিক আইনি নোটিশ।",
+    "descriptionEn": "Formal statutory notice warning landlord against arbitrary eviction and breach of tenancy agreement.",
+    "steps": [
+      {
+        "id": "sender_info",
+        "questionBn": "আপনার (ভাড়াটিয়ার) পূর্ণ নাম ও বর্তমান ঠিকানা লিখুন",
+        "questionEn": "Enter your (tenant’s) full name and current residential address",
+        "hintBn": "উদাহরণ: তাহরিম আরাহা, ফ্ল্যাট ৪বি, বাড়ি ১২, রোড ৫, ধানমন্ডি, ঢাকা",
+        "hintEn": "e.g. Mayesha, Flat 4B, House 12, Road 5, Dhanmondi, Dhaka",
+        "fieldType": "text",
+        "placeholderBn": "পূর্ণ নাম ও ঠিকানা"
+      },
+      {
+        "id": "recipient_info",
+        "questionBn": "বাড়িওয়ালার পূর্ণ নাম ও ঠিকানা লিখুন",
+        "questionEn": "Enter landlord’s full name and address",
+        "hintBn": "যার বরাবর লিগ্যাল নোটিশটি পাঠানো হবে",
+        "hintEn": "The property owner or authorized attorney",
+        "fieldType": "text",
+        "placeholderBn": "বাড়িওয়ালার নাম ও ঠিকানা"
+      },
+      {
+        "id": "tenancy_date",
+        "questionBn": "কবে থেকে আপনি এই বাড়িতে ভাড়াটিয়া হিসেবে বসবাস করছেন?",
+        "questionEn": "Since which date have you been occupying the premises as a tenant?",
+        "hintBn": "চুক্তিপত্রের তারিখ বা বসবাসের শুরুর তারিখ",
+        "hintEn": "Start date of tenancy agreement",
+        "fieldType": "date"
+      },
+      {
+        "id": "current_rent",
+        "questionBn": "বর্তমান মাসিক ভাড়া কত (টাকায়)?",
+        "questionEn": "What is the currently agreed monthly rent amount in BDT?",
+        "hintBn": "উদাহরণ: ২০,০০০",
+        "hintEn": "e.g. 20000",
+        "fieldType": "number",
+        "placeholderBn": "যেমন: ২০০০০"
+      },
+      {
+        "id": "dispute_details",
+        "questionBn": "বাড়িওয়ালা কীভাবে আইন বা চুক্তি ভঙ্গ করছেন?",
+        "questionEn": "Describe the specific violations or illegal eviction threats",
+        "hintBn": "যেমন: নোটিশ ছাড়া ৩০% ভাড়া বৃদ্ধি, পানি/বিদ্যুৎ সংযোগ বিচ্ছিন্ন করার হুমকি ইত্যাদি",
+        "hintEn": "e.g. 30% sudden rent hike without written notice, threats of disconnecting utilities",
+        "fieldType": "textarea",
+        "placeholderBn": "ঘটনার সংক্ষিপ্ত বিবরণ..."
+      },
+      {
+        "id": "notice_period_days",
+        "questionBn": "বাড়িওয়ালাকে বিরোধ নিষ্পত্তির জন্য কত দিনের সময় দিতে চান?",
+        "questionEn": "How many days notice period for compliance?",
+        "hintBn": "সাধারণত আইনি নোটিশে ৭, ১৫ বা ৩০ দিন সময় প্রদান করা হয়",
+        "hintEn": "Standard statutory period is usually 7 to 15 days",
+        "fieldType": "select",
+        "options": [
+          {
+            "value": "7",
+            "labelBn": "৭ (সাত) দিন",
+            "labelEn": "7 Days"
+          },
+          {
+            "value": "15",
+            "labelBn": "১৫ (পনেরো) দিন",
+            "labelEn": "15 Days"
+          },
+          {
+            "value": "30",
+            "labelBn": "৩০ (ত্রিশ) দিন",
+            "labelEn": "30 Days"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "tmpl-consumer-complaint",
+    "slug": "consumer-complaint",
+    "titleBn": "ভোক্তা অধিকার সংরক্ষণ অধিদপ্তরে অভিযোগপত্র",
+    "titleEn": "Consumer Rights Protection Directorate Formal Complaint",
+    "categoryBn": "ভোক্তা অধিকার ও ক্ষতিপূরণ",
+    "categoryEn": "Consumer Rights & Compensation",
+    "descriptionBn": "অতিরিক্ত মূল্য আদায়, মেয়াদোত্তীর্ণ বা ভেজাল পণ্য বিক্রির বিরুদ্ধে জাতীয় ভোক্তা অধিকার সংরক্ষণ অধিদপ্তরে অভিযোগ।",
+    "descriptionEn": "Whistleblower petition to the DNCRP for overcharging, adulteration, or deceptive commercial practices.",
+    "steps": [
+      {
+        "id": "complainant_name",
+        "questionBn": "অভিযোগকারী ভোক্তার নাম ও মোবাইল নম্বর",
+        "questionEn": "Complainant’s name and contact number",
+        "hintBn": "জাতীয় পরিচয়পত্র অনুযায়ী নাম",
+        "hintEn": "Full legal name and active phone",
+        "fieldType": "text",
+        "placeholderBn": "নাম ও ফোন নম্বর"
+      },
+      {
+        "id": "shop_name_location",
+        "questionBn": "দোকান/প্রতিষ্ঠানের নাম ও পূর্ণ ঠিকানা",
+        "questionEn": "Name of the merchant/establishment and branch address",
+        "hintBn": "ক্যাশ মেমো বা রসিদে থাকা সঠিক নাম ও বাজার/এলাকার ঠিকানা",
+        "hintEn": "Merchant name and exact store location",
+        "fieldType": "text",
+        "placeholderBn": "দোকানের নাম ও ঠিকানা"
+      },
+      {
+        "id": "offense_type",
+        "questionBn": "আইন লঙ্ঘনের ধরন নির্বাচন করুন",
+        "questionEn": "Select nature of statutory offense",
+        "hintBn": "ভোক্তা অধিকার আইনের সংশ্লিষ্ট অপরাধ",
+        "hintEn": "Ground under Consumer Protection Act 2009",
+        "fieldType": "select",
+        "options": [
+          {
+            "value": "mrp_violation",
+            "labelBn": "ধার্যকৃত মূল্যের (MRP) অধিক মূল্যে বিক্রয় (ধারা ৩৭)",
+            "labelEn": "Selling above MRP (Section 37)"
+          },
+          {
+            "value": "weight_shortage",
+            "labelBn": "ওজনে বা পরিমাপে কারচুপি (ধারা ৪৬)",
+            "labelEn": "Weight / Measure Shortage (Section 46)"
+          },
+          {
+            "value": "expired_goods",
+            "labelBn": "মেয়াদোত্তীর্ণ বা ভেজাল পণ্য বিক্রয় (ধারা ৫১)",
+            "labelEn": "Selling Expired / Adulterated Goods (Section 51)"
+          },
+          {
+            "value": "false_ad",
+            "labelBn": "মিথ্যা বিজ্ঞাপন দ্বারা প্রতারণা (ধারা ৪৪)",
+            "labelEn": "False or Misleading Advertisement (Section 44)"
+          }
+        ]
+      },
+      {
+        "id": "incident_summary",
+        "questionBn": "ঘটনার তারিখ ও পণ্যের বিবরণ",
+        "questionEn": "Incident date, product description and purchase amount",
+        "hintBn": "রসিদ নম্বর ও অতিরিক্ত কত টাকা রাখা হয়েছে তা স্পষ্ট উল্লেখ করুন",
+        "hintEn": "Include invoice number and overcharged amount",
+        "fieldType": "textarea",
+        "placeholderBn": "যেমন: গত ১০ মে তারিখে ২০০ টাকার পণ্যে ২৩০ টাকা রাখা হয়েছে..."
+      }
+    ]
+  },
+  {
+    "id": "tmpl-general-diary-cyber",
+    "slug": "general-diary-cyber",
+    "titleBn": "অনলাইন হয়রানি ও হুমকির বিষয়ে সাধারণ ডায়েরি (GD) আবেদন",
+    "titleEn": "General Diary (GD) Application for Online Harassment & Threats",
+    "categoryBn": "সাইবার ও নিরাপত্তা",
+    "categoryEn": "Cyber & Public Safety",
+    "descriptionBn": "অনলাইনে হুমকি, ব্ল্যাকমেইল বা ফেক আইডি খুলে অপপ্রচারের বিরুদ্ধে থানায় সাধারণ ডায়েরি (GD) করার খসড়া।",
+    "descriptionEn": "Police station GD petition draft recording cyber harassment, online extortion, and social media identity theft.",
+    "steps": [
+      {
+        "id": "police_station",
+        "questionBn": "সংশ্লিষ্ট থানার নাম ও জেলা",
+        "questionEn": "Target Police Station & District",
+        "hintBn": "যে থানার আওতাধীন এলাকায় আপনি বসবাস করছেন",
+        "hintEn": "Local Thana jurisdiction",
+        "fieldType": "text",
+        "placeholderBn": "ভারপ্রাপ্ত কর্মকর্তা, ধানমন্ডি থানা, ঢাকা"
+      },
+      {
+        "id": "applicant_details",
+        "questionBn": "আবেদনকারীর নাম, পিতার নাম ও জাতীয় পরিচয়পত্র নম্বর",
+        "questionEn": "Applicant’s full name, father’s name & NID number",
+        "hintBn": "থানার রেকর্ডের জন্য সঠিক তথ্য প্রদান করুন",
+        "hintEn": "Exact NID details for police records",
+        "fieldType": "text",
+        "placeholderBn": "নাম, পিতার নাম ও এনআইডি নম্বর"
+      },
+      {
+        "id": "offender_info",
+        "questionBn": "বিবাদী বা সন্দেহভাজন ব্যক্তির বিবরণ (জানা থাকলে)",
+        "questionEn": "Suspect profile / Facebook ID link / Phone number (if known)",
+        "hintBn": "ফেসবুক প্রোফাইল ইউআরএল, ব্যবহৃত ফোন নম্বর বা অজ্ঞাত হিসেবে উল্লেখ",
+        "hintEn": "Target URL, profile link or specify unknown",
+        "fieldType": "text",
+        "placeholderBn": "প্রোফাইল লিঙ্ক বা ফোন নম্বর"
+      },
+      {
+        "id": "incident_details",
+        "questionBn": "হুমকি বা অপপ্রচারের ঘটনা কীভাবে ঘটেছে?",
+        "questionEn": "Detailed account of the cyber incident and threats",
+        "hintBn": "তারিখ, সময় ও ডিজিটাল প্ল্যাটফর্মের নাম উল্লেখ করুন",
+        "hintEn": "Specific timestamps, messages and platforms",
+        "fieldType": "textarea",
+        "placeholderBn": "ঘটনার বিবরণ..."
+      }
+    ]
+  }
+]

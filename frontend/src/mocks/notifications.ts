@@ -1,0 +1,40 @@
+import type { AppNotification } from './types';
+
+export const mockNotifications: AppNotification[] = [
+  {
+    id: 'notif-1',
+    userId: 'user-citizen-1',
+    type: 'verification_completed',
+    titleBn: 'আইনজীবী যাচাই সম্পন্ন হয়েছে',
+    titleEn: 'Lawyer Verification Completed',
+    bodyBn: 'অ্যাডভোকেট মো. রফিকুল ইসলাম আপনার বাড়িভাড়া সংক্রান্ত প্রশ্নের এআই উত্তরের নির্ভুলতা যাচাই করেছেন।',
+    bodyEn: 'Advocate Md. Rafiqul Islam verified your tenancy law answer.',
+    link: '/app/verifications/req-verif-1',
+    isRead: false,
+    createdAt: '2025-05-13T11:20:00Z',
+  },
+  {
+    id: 'notif-2',
+    userId: 'user-citizen-1',
+    type: 'consultation_scheduled',
+    titleBn: 'পরামর্শের সময়সূচি নিশ্চিত হয়েছে',
+    titleEn: 'Consultation Schedule Confirmed',
+    bodyBn: 'অ্যাডভোকেট মো. রফিকুল ইসলামের সাথে ১৮ মে বিকাল ৪:০০ টায় আপনার ভিডিও পরামর্শের সময় নির্ধারিত হয়েছে।',
+    bodyEn: 'Your video consultation with Advocate Md. Rafiqul Islam is confirmed for May 18 at 4:00 PM.',
+    link: '/app/consultations/cons-101',
+    isRead: false,
+    createdAt: '2025-05-14T09:00:00Z',
+  },
+  {
+    id: 'notif-3',
+    userId: 'user-citizen-1',
+    type: 'statute_updated',
+    titleBn: 'নতুন আইন সংকলিত হয়েছে',
+    titleEn: 'New Statute Indexed in Corpus',
+    bodyBn: 'ভোক্তা-অধিকার সংরক্ষণ আইন, ২০০৯ সফলভাবে ভেক্টর করপাসে যুক্ত হয়েছে।',
+    bodyEn: 'Consumer Rights Protection Act 2009 has been indexed and is now live for AI search.',
+    link: '/statutes/consumer-rights-2009',
+    isRead: true,
+    createdAt: '2025-05-10T08:00:00Z',
+  },
+];

@@ -1,0 +1,146 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* ——— Palette (only these five hues + derived tints) ——— */
+    --c-ink: 0 0 0;
+    --c-ink-soft: 26 21 18;
+    --c-bone: 246 236 227;
+    --c-bone-deep: 237 224 212;
+    --c-clay: 145 118 110;
+    --c-clay-deep: 110 87 80;
+    --c-clay-tint: 239 227 221;
+    --c-granite: 183 167 169;
+    --c-granite-soft: 216 207 206;
+    --c-brick: 122 59 51;
+    --c-white: 255 255 255;
+
+    /* ——— Type: English defaults ——— */
+    --font-display: 'Antonio', 'Arial Narrow', sans-serif;
+    --font-body: 'Poppins', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+    --fs-body: 1.0625rem;
+    --lh-body: 1.65;
+    --lh-display: 1.05;
+
+    --section-pad: 96px;
+  }
+
+  html {
+    /* Default to English */
+    --font-display: 'Antonio', 'Arial Narrow', sans-serif;
+    --font-body: 'Poppins', system-ui, sans-serif;
+  }
+
+  /* ——— Type: Bengali overrides ——— */
+  html[lang='bn'] {
+    --font-display: 'Baloo Da 2', sans-serif !important;
+    --font-body: 'Baloo Da 2', sans-serif !important;
+    --fs-body: 1rem;
+    --lh-body: 1.78;
+    --lh-display: 1.35;
+    word-spacing: 0.3em;
+  }
+
+  /* Explicitly set English fonts */
+  html[lang='en'] {
+    --font-display: 'Antonio', 'Arial Narrow', sans-serif !important;
+    --font-body: 'Poppins', system-ui, sans-serif !important;
+  }
+
+  @media (min-width: 1024px) {
+    :root { --section-pad: 160px; }
+  }
+
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+
+  body {
+    @apply bg-bone text-ink-soft text-body;
+    font-family: var(--font-body);
+    font-synthesis-weight: none;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, h2, h3, h4 { 
+    @apply text-ink;
+    font-family: var(--font-display);
+  }
+
+  /* Bengali must never be letter-spaced or uppercased */
+  html[lang='bn'] .tracking-label,
+  html[lang='bn'] .uppercase { letter-spacing: 0 !important; text-transform: none !important; }
+
+  :focus-visible {
+    outline: 2px solid rgb(var(--c-clay));
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  ::selection { background: rgb(var(--c-clay-tint)); color: rgb(var(--c-ink)); }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 150ms !important;
+    }
+  }
+}
+
+@layer components {
+  .section-pad { padding-top: var(--section-pad); padding-bottom: var(--section-pad); }
+
+  .shell { @apply mx-auto w-full max-w-content px-5 sm:px-8; }
+
+  .label {
+    @apply font-mono text-label uppercase tracking-label text-clay-deep;
+    letter-spacing: 0.14em;
+  }
+  .tracking-label { letter-spacing: 0.14em; }
+
+  .hairline { @apply border-granite-soft; }
+
+  .prose-legal p { @apply max-w-prose; }
+
+  /* Document-margin motif: a 1px rule that separates margin notes from body */
+  .margin-rule { box-shadow: inset 1px 0 0 rgb(var(--c-granite-soft)); }
+
+  .link-underline {
+    background-image: linear-gradient(rgb(var(--c-clay)), rgb(var(--c-clay)));
+    background-size: 0% 1px;
+    background-position: 0 100%;
+    background-repeat: no-repeat;
+    transition: background-size 260ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .link-underline:hover { background-size: 100% 1px; }
+
+  /* Duotone treatment so the photograph obeys the palette */
+  .duotone {
+    filter: grayscale(1) sepia(0.42) saturate(1.35) hue-rotate(-8deg) contrast(1.04) brightness(0.96);
+  }
+
+  /* Dark wooden brown header texture: layered wood-tone gradient + fine grain lines */
+  .header-wood {
+    background-color: #2b1a10;
+    background-image:
+      repeating-linear-gradient(
+        95deg,
+        rgba(0, 0, 0, 0.16) 0px,
+        rgba(0, 0, 0, 0.16) 1px,
+        transparent 1px,
+        transparent 3px
+      ),
+      repeating-linear-gradient(
+        95deg,
+        rgba(255, 214, 170, 0.05) 0px,
+        rgba(255, 214, 170, 0.05) 2px,
+        transparent 2px,
+        transparent 9px
+      ),
+      linear-gradient(180deg, #4a2e1a 0%, #3a2213 45%, #2b1a10 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 214, 170, 0.08), inset 0 -1px 0 rgba(0, 0, 0, 0.35);
+  }
+}

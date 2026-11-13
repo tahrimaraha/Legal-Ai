@@ -1,0 +1,899 @@
+[
+  {
+    "id": "lawyer-1",
+    "userId": "user-lawyer-1",
+    "fullName": "Advocate Shamsul Alam Chowdhury",
+    "fullNameBn": "অ্যাডভোকেট শামসুল আলম চৌধুরী",
+    "title": "Senior Advocate, Supreme Court of Bangladesh",
+    "titleBn": "সিনিয়র আইনজীবী, বাংলাদেশ সুপ্রিম কোর্ট",
+    "avatarUrl": "/logo.svg",
+    "district": "Dhaka",
+    "districtBn": "ঢাকা",
+    "barEnrolmentNo": "BC/DH/2009/4812",
+    "enrolmentYear": 2009,
+    "verificationStatus": "verified",
+    "practiceAreas": [
+      "Constitutional Law",
+      "Civil Litigation",
+      "Cyber Security Law",
+      "Property Disputes"
+    ],
+    "practiceAreasBn": [
+      "সাংবিধানিক আইন",
+      "দেওয়ানি মামলা",
+      "সাইবার নিরাপত্তা আইন",
+      "সম্পত্তি বিরোধ"
+    ],
+    "courts": [
+      "Appellate Division, Supreme Court",
+      "High Court Division",
+      "Dhaka District & Sessions Judge Court"
+    ],
+    "courtsBn": [
+      "আপিল বিভাগ, সুপ্রিম কোর্ট",
+      "হাইকোর্ট বিভাগ",
+      "ঢাকা জেলা ও দায়রা জজ আদালত"
+    ],
+    "languages": [
+      "Bengali",
+      "English"
+    ],
+    "bioBn": "১৫ বছরেরও বেশি সময় ধরে সুপ্রিম কোর্টে মৌলিক অধিকার ও দেওয়ানি বিরোধ নিষ্পত্তি করছেন। সাধারণ নাগরিকদের জন্য সাইবার সুরক্ষা ও সংবিধান বিষয়ক স্পষ্ট পরামর্শ প্রদানে নিবেদিত।",
+    "bioEn": "Over 15 years of distinguished practice at the Supreme Court of Bangladesh, specializing in constitutional remedies, cyber law, and high-value civil disputes.",
+    "experienceYears": 16,
+    "startingFeeBdt": 800,
+    "fees": [
+      {
+        "mode": "chat",
+        "feeBdt": 800,
+        "durationMinutes": 20
+      },
+      {
+        "mode": "audio",
+        "feeBdt": 1200,
+        "durationMinutes": 30
+      },
+      {
+        "mode": "video",
+        "feeBdt": 1800,
+        "durationMinutes": 30
+      },
+      {
+        "mode": "in_person",
+        "feeBdt": 3000,
+        "durationMinutes": 45
+      }
+    ],
+    "rating": 4.9,
+    "reviewCount": 47,
+    "responseTimeCommitment": "Usually responds in 3 hours",
+    "responseTimeCommitmentBn": "সাধারণত ৩ ঘণ্টার মধ্যে সাড়া দেন",
+    "totalVerifications": 132,
+    "totalConsultations": 89,
+    "education": [
+      "LL.M (University of Dhaka)",
+      "LL.B (Honours), University of Dhaka"
+    ],
+    "educationBn": [
+      "এলএল.এম (ঢাকা বিশ্ববিদ্যালয়)",
+      "এলএল.বি (সম্মান), ঢাকা বিশ্ববিদ্যালয়"
+    ],
+    "isAvailableToday": true
+  },
+  {
+    "id": "lawyer-2",
+    "userId": "user-lawyer-2",
+    "fullName": "Barrister Farzana Huq",
+    "fullNameBn": "ব্যারিস্টার ফারজানা হক",
+    "title": "Barrister-at-Law (Lincoln’s Inn), Advocate, High Court Division",
+    "titleBn": "ব্যারিস্টার-অ্যাট-ল (লিংকনস ইন), আইনজীবী, হাইকোর্ট বিভাগ",
+    "avatarUrl": "/logo.svg",
+    "district": "Dhaka",
+    "districtBn": "ঢাকা",
+    "barEnrolmentNo": "BC/DH/2014/9201",
+    "enrolmentYear": 2014,
+    "verificationStatus": "verified",
+    "practiceAreas": [
+      "Domestic Violence & Family Law",
+      "Dowry Prohibition",
+      "Child Custody",
+      "Cyber Harassment"
+    ],
+    "practiceAreasBn": [
+      "পারিবারিক সহিংসতা ও পরিবার আইন",
+      "যৌতুক নিরোধ",
+      "সন্তানের হেফাজত",
+      "অনলাইন হয়রানি"
+    ],
+    "courts": [
+      "High Court Division, Supreme Court",
+      "Dhaka Family Court",
+      "Cyber Tribunal Dhaka"
+    ],
+    "courtsBn": [
+      "হাইকোর্ট বিভাগ, সুপ্রিম কোর্ট",
+      "ঢাকা পারিবারিক আদালত",
+      "সাইবার ট্রাইব্যুনাল ঢাকা"
+    ],
+    "languages": [
+      "Bengali",
+      "English"
+    ],
+    "bioBn": "নারী ও শিশু অধিকার রক্ষায় নিবেদিত আইনজীবী। পারিবারিক সহিংসতা প্রতিরোধ আইন ২০১০ ও দেনমোহর আদায়ে বহু অসহায় নাগরিককে সফল আইনি সহায়তা দিয়েছেন।",
+    "bioEn": "Dedicated advocate with extensive experience in domestic violence protection, child custody, and dower enforcement. Passionate about women rights under Bangladeshi law.",
+    "experienceYears": 11,
+    "startingFeeBdt": 700,
+    "fees": [
+      {
+        "mode": "chat",
+        "feeBdt": 700,
+        "durationMinutes": 20
+      },
+      {
+        "mode": "audio",
+        "feeBdt": 1000,
+        "durationMinutes": 30
+      },
+      {
+        "mode": "video",
+        "feeBdt": 1500,
+        "durationMinutes": 30
+      },
+      {
+        "mode": "in_person",
+        "feeBdt": 2500,
+        "durationMinutes": 45
+      }
+    ],
+    "rating": 4.95,
+    "reviewCount": 68,
+    "responseTimeCommitment": "Usually responds in 1 hour",
+    "responseTimeCommitmentBn": "সাধারণত ১ ঘণ্টার মধ্যে সাড়া দেন",
+    "totalVerifications": 210,
+    "totalConsultations": 145,
+    "education": [
+      "Bar Vocational Course, City University London",
+      "LL.B (Honours), University of London"
+    ],
+    "educationBn": [
+      "বার ভোকেশনাল কোর্স, সিটি ইউনিভার্সিটি লন্ডন",
+      "এলএল.বি (সম্মান), ইউনিভার্সিটি অব লন্ডন"
+    ],
+    "isAvailableToday": true
+  },
+  {
+    "id": "lawyer-3",
+    "userId": "user-lawyer-3",
+    "fullName": "Advocate Md. Rafiqul Islam",
+    "fullNameBn": "অ্যাডভোকেট মো. রফিকুল ইসলাম",
+    "title": "Advocate, Chattogram District & Sessions Judge Court",
+    "titleBn": "আইনজীবী, চট্টগ্রাম জেলা ও দায়রা জজ আদালত",
+    "avatarUrl": "/logo.svg",
+    "district": "Chattogram",
+    "districtBn": "চট্টগ্রাম",
+    "barEnrolmentNo": "BC/CTG/2011/3190",
+    "enrolmentYear": 2011,
+    "verificationStatus": "verified",
+    "practiceAreas": [
+      "Tenancy Disputes",
+      "House Rent Control",
+      "Land Transfer & Mutation",
+      "Consumer Rights"
+    ],
+    "practiceAreasBn": [
+      "বাড়িভাড়া ও উচ্ছেদ বিরোধ",
+      "ভাড়া নিয়ন্ত্রণ আইন",
+      "জমি দলিল ও নামজারি",
+      "ভোক্তা অধিকার"
+    ],
+    "courts": [
+      "Chattogram District & Sessions Judge Court",
+      "House Rent Controller Court Chattogram"
+    ],
+    "courtsBn": [
+      "চট্টগ্রাম জেলা ও দায়রা জজ আদালত",
+      "বাড়িভাড়া নিয়ন্ত্রক আদালত চট্টগ্রাম"
+    ],
+    "languages": [
+      "Bengali",
+      "English",
+      "Chittagonian"
+    ],
+    "bioBn": "বাড়িভাড়া আইন ১৯৯১ ও জমিজমা হস্তান্তর বিষয়ক দীর্ঘ অভিজ্ঞতাসম্পন্ন। বাড়িওয়ালা-ভাড়াটিয়া জটিলতা নিরসনে কার্যকর ও বাস্তবসম্মত সমাধানের জন্য সুপরিচিত।",
+    "bioEn": "Seasoned practitioner in Chattogram specializing in tenancy disputes, arbitrary eviction prevention, and land deed verification.",
+    "experienceYears": 14,
+    "startingFeeBdt": 500,
+    "fees": [
+      {
+        "mode": "chat",
+        "feeBdt": 500,
+        "durationMinutes": 20
+      },
+      {
+        "mode": "audio",
+        "feeBdt": 800,
+        "durationMinutes": 30
+      },
+      {
+        "mode": "video",
+        "feeBdt": 1200,
+        "durationMinutes": 30
+      },
+      {
+        "mode": "in_person",
+        "feeBdt": 2000,
+        "durationMinutes": 45
+      }
+    ],
+    "rating": 4.8,
+    "reviewCount": 39,
+    "responseTimeCommitment": "Usually responds in 4 hours",
+    "responseTimeCommitmentBn": "সাধারণত ৪ ঘণ্টার মধ্যে সাড়া দেন",
+    "totalVerifications": 95,
+    "totalConsultations": 62,
+    "education": [
+      "LL.M (University of Chittagong)",
+      "LL.B (Honours), University of Chittagong"
+    ],
+    "educationBn": [
+      "এলএল.এম (চট্টগ্রাম বিশ্ববিদ্যালয়)",
+      "এলএল.বি (সম্মান), চট্টগ্রাম বিশ্ববিদ্যালয়"
+    ],
+    "isAvailableToday": true
+  },
+  {
+    "id": "lawyer-4",
+    "userId": "user-lawyer-4",
+    "fullName": "Advocate Nusrat Jahan Tisha",
+    "fullNameBn": "অ্যাডভোকেট নুসরাত জাহান তিশা",
+    "title": "Advocate, Sylhet District Bar Association",
+    "titleBn": "আইনজীবী, সিলেট জেলা বার অ্যাসোসিয়েশন",
+    "avatarUrl": "/logo.svg",
+    "district": "Sylhet",
+    "districtBn": "সিলেট",
+    "barEnrolmentNo": "BC/SYL/2016/5420",
+    "enrolmentYear": 2016,
+    "verificationStatus": "verified",
+    "practiceAreas": [
+      "Consumer Rights Protection",
+      "Succession & Inheritance",
+      "Family Law"
+    ],
+    "practiceAreasBn": [
+      "ভোক্তা অধিকার সংরক্ষণ",
+      "উত্তরাধিকার ও ওয়ারিশ বণ্টন",
+      "পারিবারিক আইন"
+    ],
+    "courts": [
+      "Sylhet District & Sessions Judge Court",
+      "Sylhet Family Court"
+    ],
+    "courtsBn": [
+      "সিলেট জেলা ও দায়রা জজ আদালত",
+      "সিলেট পারিবারিক আদালত"
+    ],
+    "languages": [
+      "Bengali",
+      "English",
+      "Sylheti"
+    ],
+    "bioBn": "ভোক্তা অধিকার সংরক্ষণ আইন ২০০৯ অনুযায়ী প্রতারিত ক্রেতাদের ক্ষতিপূরণ আদায় ও পরিবারের উত্তরাধিকার সম্পত্তি বণ্টনে পরামর্শ দিয়ে থাকেন।",
+    "bioEn": "Focuses on consumer rights compensation claims and Muslim inheritance distribution across the Sylhet division.",
+    "experienceYears": 9,
+    "startingFeeBdt": 600,
+    "fees": [
+      {
+        "mode": "chat",
+        "feeBdt": 600,
+        "durationMinutes": 20
+      },
+      {
+        "mode": "audio",
+        "feeBdt": 900,
+        "durationMinutes": 30
+      },
+      {
+        "mode": "video",
+        "feeBdt": 1400,
+        "durationMinutes": 30
+      },
+      {
+        "mode": "in_person",
+        "feeBdt": 2200,
+        "durationMinutes": 45
+      }
+    ],
+    "rating": 4.88,
+    "reviewCount": 31,
+    "responseTimeCommitment": "Usually responds in 2 hours",
+    "responseTimeCommitmentBn": "সাধারণত ২ ঘণ্টার মধ্যে সাড়া দেন",
+    "totalVerifications": 84,
+    "totalConsultations": 51,
+    "education": [
+      "LL.M (Leading University Sylhet)",
+      "LL.B (Honours)"
+    ],
+    "educationBn": [
+      "এলএল.এম (লিডিং ইউনিভার্সিটি)",
+      "এলএল.বি (সম্মান)"
+    ],
+    "isAvailableToday": true
+  },
+  {
+    "id": "lawyer-5",
+    "userId": "user-lawyer-5",
+    "fullName": "Advocate Tariqul Islam Chowdhury",
+    "fullNameBn": "অ্যাডভোকেট তারিকুল ইসলাম চৌধুরী",
+    "title": "Advocate, Rajshahi District Bar Association",
+    "titleBn": "আইনজীবী, রাজশাহী জেলা বার অ্যাসোসিয়েশন",
+    "avatarUrl": "/logo.svg",
+    "district": "Rajshahi",
+    "districtBn": "রাজশাহী",
+    "barEnrolmentNo": "BC/RAJ/2012/1188",
+    "enrolmentYear": 2012,
+    "verificationStatus": "verified",
+    "practiceAreas": [
+      "Penal Code Offenses",
+      "Criminal Defense",
+      "Land Title Disputes",
+      "Cheating & Fraud"
+    ],
+    "practiceAreasBn": [
+      "দণ্ডবিধির ফৌজদারি অপরাধ",
+      "ফৌজদারি মামলা",
+      "জমি সংক্রান্ত মামলা",
+      "প্রতারণা ও ৪২০ ধারা"
+    ],
+    "courts": [
+      "Rajshahi District & Sessions Court",
+      "Chief Judicial Magistrate Court Rajshahi"
+    ],
+    "courtsBn": [
+      "রাজশাহী জেলা ও দায়রা আদালত",
+      "চিফ জুডিশিয়াল ম্যাজিস্ট্রেট আদালত রাজশাহী"
+    ],
+    "languages": [
+      "Bengali",
+      "English"
+    ],
+    "bioBn": "ফৌজদারি দণ্ডবিধির প্রতারণা (ধারা ৪২০), সাধারণ ডায়েরি (GD) ও জমি সংক্রান্ত মামলায় অভিজ্ঞ পরামর্শদাতা।",
+    "bioEn": "Specializes in criminal law, bail petitions, Penal Code section 420 claims, and land dispute mediation.",
+    "experienceYears": 13,
+    "startingFeeBdt": 500,
+    "fees": [
+      {
+        "mode": "chat",
+        "feeBdt": 500,
+        "durationMinutes": 20
+      },
+      {
+        "mode": "audio",
+        "feeBdt": 800,
+        "durationMinutes": 30
+      },
+      {
+        "mode": "video",
+        "feeBdt": 1200,
+        "durationMinutes": 30
+      },
+      {
+        "mode": "in_person",
+        "feeBdt": 2000,
+        "durationMinutes": 45
+      }
+    ],
+    "rating": 4.75,
+    "reviewCount": 28,
+    "responseTimeCommitment": "Usually responds in 5 hours",
+    "responseTimeCommitmentBn": "সাধারণত ৫ ঘণ্টার মধ্যে সাড়া দেন",
+    "totalVerifications": 67,
+    "totalConsultations": 43,
+    "education": [
+      "LL.B (Honours), Rajshahi University",
+      "LL.M, Rajshahi University"
+    ],
+    "educationBn": [
+      "এলএল.বি (সম্মান), রাজশাহী বিশ্ববিদ্যালয়",
+      "এলএল.এম, রাজশাহী বিশ্ববিদ্যালয়"
+    ],
+    "isAvailableToday": true
+  },
+  {
+    "id": "lawyer-6",
+    "userId": "user-lawyer-6",
+    "fullName": "Advocate Afroza Begum",
+    "fullNameBn": "অ্যাডভোকেট আফরোজা বেগম",
+    "title": "Advocate, Khulna District & Sessions Court",
+    "titleBn": "আইনজীবী, খুলনা জেলা ও দায়রা আদালত",
+    "avatarUrl": "/logo.svg",
+    "district": "Khulna",
+    "districtBn": "খুলনা",
+    "barEnrolmentNo": "BC/KHL/2015/7841",
+    "enrolmentYear": 2015,
+    "verificationStatus": "verified",
+    "practiceAreas": [
+      "Labour Law",
+      "Maternity Rights",
+      "Family Disputes",
+      "Consumer Protection"
+    ],
+    "practiceAreasBn": [
+      "শ্রম আইন",
+      "মাতৃত্বকালীন অধিকার",
+      "পারিবারিক বিরোধ",
+      "ভোক্তা অধিকার"
+    ],
+    "courts": [
+      "Khulna Labour Court",
+      "Khulna Family Court"
+    ],
+    "courtsBn": [
+      "খুলনা শ্রম আদালত",
+      "খুলনা পারিবারিক আদালত"
+    ],
+    "languages": [
+      "Bengali",
+      "English"
+    ],
+    "bioBn": "শ্রমিক ও সাধারণ চাকরিজীবীদের অধিকার আদায় এবং পারিবারিক আদালতের বিভিন্ন মামলায় নাগরিকদের সুলভ ও আন্তরিক আইনি সহায়তা দেন।",
+    "bioEn": "Dedicated to workplace rights, employee compensation, and family dispute resolution.",
+    "experienceYears": 10,
+    "startingFeeBdt": 450,
+    "fees": [
+      {
+        "mode": "chat",
+        "feeBdt": 450,
+        "durationMinutes": 20
+      },
+      {
+        "mode": "audio",
+        "feeBdt": 700,
+        "durationMinutes": 30
+      },
+      {
+        "mode": "video",
+        "feeBdt": 1100,
+        "durationMinutes": 30
+      },
+      {
+        "mode": "in_person",
+        "feeBdt": 1800,
+        "durationMinutes": 45
+      }
+    ],
+    "rating": 4.9,
+    "reviewCount": 22,
+    "responseTimeCommitment": "Usually responds in 2 hours",
+    "responseTimeCommitmentBn": "সাধারণত ২ ঘণ্টার মধ্যে সাড়া দেন",
+    "totalVerifications": 54,
+    "totalConsultations": 38,
+    "education": [
+      "LL.B, University of Dhaka"
+    ],
+    "educationBn": [
+      "এলএল.বি, ঢাকা বিশ্ববিদ্যালয়"
+    ],
+    "isAvailableToday": true
+  },
+  {
+    "id": "lawyer-7",
+    "userId": "user-lawyer-7",
+    "fullName": "Barrister Mahir Faisal",
+    "fullNameBn": "ব্যারিস্টার মাহির ফয়সাল",
+    "title": "Advocate, High Court Division, Supreme Court",
+    "titleBn": "আইনজীবী, হাইকোর্ট বিভাগ, সুপ্রিম কোর্ট",
+    "avatarUrl": "/logo.svg",
+    "district": "Dhaka",
+    "districtBn": "ঢাকা",
+    "barEnrolmentNo": "BC/DH/2018/10452",
+    "enrolmentYear": 2018,
+    "verificationStatus": "verified",
+    "practiceAreas": [
+      "Cyber Security Ordinance",
+      "Digital Evidence & Forensics",
+      "Defamation & Media Law"
+    ],
+    "practiceAreasBn": [
+      "সাইবার সুরক্ষা অধ্যাদেশ",
+      "ডিজিটাল সাক্ষ্য ও ফরেনসিক",
+      "মানহানি ও মিডিয়া আইন"
+    ],
+    "courts": [
+      "High Court Division",
+      "Cyber Tribunal Dhaka"
+    ],
+    "courtsBn": [
+      "হাইকোর্ট বিভাগ",
+      "সাইবার ট্রাইব্যুনাল ঢাকা"
+    ],
+    "languages": [
+      "Bengali",
+      "English"
+    ],
+    "bioBn": "ডিজিটাল প্রতারণা, ফেসবুক আইডি হ্যাকিং, ব্ল্যাকমেইল এবং সামাজিক মাধ্যমে মানহানির বিষয়ে তরুণ নাগরিকদের দ্রুত আইনি প্রতিকার নিশ্চিত করেন।",
+    "bioEn": "Tech-law practitioner focused on internet extortion, privacy violations, and cyber tribunal representation.",
+    "experienceYears": 7,
+    "startingFeeBdt": 750,
+    "fees": [
+      {
+        "mode": "chat",
+        "feeBdt": 750,
+        "durationMinutes": 20
+      },
+      {
+        "mode": "audio",
+        "feeBdt": 1200,
+        "durationMinutes": 30
+      },
+      {
+        "mode": "video",
+        "feeBdt": 1600,
+        "durationMinutes": 30
+      },
+      {
+        "mode": "in_person",
+        "feeBdt": 2800,
+        "durationMinutes": 45
+      }
+    ],
+    "rating": 4.85,
+    "reviewCount": 35,
+    "responseTimeCommitment": "Usually responds in 1 hour",
+    "responseTimeCommitmentBn": "সাধারণত ১ ঘণ্টার মধ্যে সাড়া দেন",
+    "totalVerifications": 110,
+    "totalConsultations": 76,
+    "education": [
+      "Bar-at-Law (Middle Temple)",
+      "LL.B (Honours), BPP University UK"
+    ],
+    "educationBn": [
+      "বার-অ্যাট-ল (মিডল টেম্পল)",
+      "এলএল.বি (সম্মান), বিপিপি ইউনিভার্সিটি"
+    ],
+    "isAvailableToday": true
+  },
+  {
+    "id": "lawyer-8",
+    "userId": "user-lawyer-8",
+    "fullName": "Advocate Salma Akhter",
+    "fullNameBn": "অ্যাডভোকেট সালমা আক্তার",
+    "title": "Advocate, Dhaka Bar Association",
+    "titleBn": "আইনজীবী, ঢাকা বার অ্যাসোসিয়েশন",
+    "avatarUrl": "/logo.svg",
+    "district": "Dhaka",
+    "districtBn": "ঢাকা",
+    "barEnrolmentNo": "BC/DH/2020/12980",
+    "enrolmentYear": 2020,
+    "verificationStatus": "verified",
+    "practiceAreas": [
+      "Family Courts Ordinance",
+      "Denmohor & Maintenance",
+      "Domestic Violence Act"
+    ],
+    "practiceAreasBn": [
+      "পারিবারিক আদালত অধ্যাদেশ",
+      "দেনমোহর ও খোরপোষ",
+      "পারিবারিক সহিংসতা আইন"
+    ],
+    "courts": [
+      "Dhaka Family Court",
+      "Dhaka District & Sessions Judge Court"
+    ],
+    "courtsBn": [
+      "ঢাকা পারিবারিক আদালত",
+      "ঢাকা জেলা ও দায়রা জজ আদালত"
+    ],
+    "languages": [
+      "Bengali",
+      "English"
+    ],
+    "bioBn": "পারিবারিক আদালতে দেনমোহর ও ভরণপোষণের মোকদ্দমায় দক্ষ ও দায়িত্বশীল আইনজীবী।",
+    "bioEn": "Active family law practitioner with a high settlement rate in child maintenance and dower cases.",
+    "experienceYears": 5,
+    "startingFeeBdt": 400,
+    "fees": [
+      {
+        "mode": "chat",
+        "feeBdt": 400,
+        "durationMinutes": 20
+      },
+      {
+        "mode": "audio",
+        "feeBdt": 600,
+        "durationMinutes": 30
+      },
+      {
+        "mode": "video",
+        "feeBdt": 950,
+        "durationMinutes": 30
+      },
+      {
+        "mode": "in_person",
+        "feeBdt": 1500,
+        "durationMinutes": 45
+      }
+    ],
+    "rating": 4.92,
+    "reviewCount": 19,
+    "responseTimeCommitment": "Usually responds in 3 hours",
+    "responseTimeCommitmentBn": "সাধারণত ৩ ঘণ্টার মধ্যে সাড়া দেন",
+    "totalVerifications": 42,
+    "totalConsultations": 29,
+    "education": [
+      "LL.B (Honours), Jagannath University"
+    ],
+    "educationBn": [
+      "এলএল.বি (সম্মান), জগন্নাথ বিশ্ববিদ্যালয়"
+    ],
+    "isAvailableToday": true
+  },
+  {
+    "id": "lawyer-9",
+    "userId": "user-lawyer-9",
+    "fullName": "Advocate Kazi Tanvir Ahmed",
+    "fullNameBn": "অ্যাডভোকেট কাজী তানভীর আহমেদ",
+    "title": "Advocate, Barishal District Bar",
+    "titleBn": "আইনজীবী, বরিশাল জেলা বার",
+    "avatarUrl": "/logo.svg",
+    "district": "Barishal",
+    "districtBn": "বরিশাল",
+    "barEnrolmentNo": "BC/BAR/2017/6321",
+    "enrolmentYear": 2017,
+    "verificationStatus": "verified",
+    "practiceAreas": [
+      "Consumer Rights",
+      "Evidence Act",
+      "Contract Disputes"
+    ],
+    "practiceAreasBn": [
+      "ভোক্তা অধিকার",
+      "সাক্ষ্য আইন",
+      "চুক্তি সংক্রান্ত বিরোধ"
+    ],
+    "courts": [
+      "Barishal District & Sessions Court"
+    ],
+    "courtsBn": [
+      "বরিশাল জেলা ও দায়রা আদালত"
+    ],
+    "languages": [
+      "Bengali",
+      "English"
+    ],
+    "bioBn": "ভোক্তা অধিকার ও ব্যবসায়িক চুক্তি সংক্রান্ত বিরোধে সাধারণ মানুষকে সাশ্রয়ী পরামর্শ দেন।",
+    "bioEn": "Committed to affordable consumer justice and contract enforcement in Barishal.",
+    "experienceYears": 8,
+    "startingFeeBdt": 400,
+    "fees": [
+      {
+        "mode": "chat",
+        "feeBdt": 400,
+        "durationMinutes": 20
+      },
+      {
+        "mode": "audio",
+        "feeBdt": 600,
+        "durationMinutes": 30
+      },
+      {
+        "mode": "video",
+        "feeBdt": 900,
+        "durationMinutes": 30
+      },
+      {
+        "mode": "in_person",
+        "feeBdt": 1500,
+        "durationMinutes": 45
+      }
+    ],
+    "rating": 4.7,
+    "reviewCount": 14,
+    "responseTimeCommitment": "Usually responds in 6 hours",
+    "responseTimeCommitmentBn": "সাধারণত ৬ ঘণ্টার মধ্যে সাড়া দেন",
+    "totalVerifications": 38,
+    "totalConsultations": 20,
+    "education": [
+      "LL.B, University of Barishal"
+    ],
+    "educationBn": [
+      "এলএল.বি, বরিশাল বিশ্ববিদ্যালয়"
+    ],
+    "isAvailableToday": true
+  },
+  {
+    "id": "lawyer-10",
+    "userId": "user-lawyer-10",
+    "fullName": "Advocate Rashed Khan Menon",
+    "fullNameBn": "অ্যাডভোকেট রাশেদ খান মেনন",
+    "title": "Advocate, High Court Division",
+    "titleBn": "আইনজীবী, হাইকোর্ট বিভাগ",
+    "avatarUrl": "/logo.svg",
+    "district": "Dhaka",
+    "districtBn": "ঢাকা",
+    "barEnrolmentNo": "BC/DH/2023/16400",
+    "enrolmentYear": 2023,
+    "verificationStatus": "pending",
+    "practiceAreas": [
+      "Constitutional Law",
+      "Fundamental Rights",
+      "Writ Petitions"
+    ],
+    "practiceAreasBn": [
+      "সাংবিধানিক আইন",
+      "মৌলিক অধিকার",
+      "রিট পিটিশন"
+    ],
+    "courts": [
+      "High Court Division"
+    ],
+    "courtsBn": [
+      "হাইকোর্ট বিভাগ"
+    ],
+    "languages": [
+      "Bengali",
+      "English"
+    ],
+    "bioBn": "বাংলাদেশ বার কাউন্সিলের সনদপ্রাপ্তির আবেদন যাচাইধীন। সুপ্রিম কোর্টে জুনিয়র হিসেবে দেওয়ানি ও রিট মামলায় কাজ করছেন।",
+    "bioEn": "Bar Council enrollment verification under administrative review. Focuses on constitutional writs.",
+    "experienceYears": 2,
+    "startingFeeBdt": 350,
+    "fees": [
+      {
+        "mode": "chat",
+        "feeBdt": 350,
+        "durationMinutes": 20
+      },
+      {
+        "mode": "audio",
+        "feeBdt": 500,
+        "durationMinutes": 30
+      },
+      {
+        "mode": "video",
+        "feeBdt": 800,
+        "durationMinutes": 30
+      },
+      {
+        "mode": "in_person",
+        "feeBdt": 1200,
+        "durationMinutes": 45
+      }
+    ],
+    "rating": 4.5,
+    "reviewCount": 4,
+    "responseTimeCommitment": "Usually responds in 2 hours",
+    "responseTimeCommitmentBn": "সাধারণত ২ ঘণ্টার মধ্যে সাড়া দেন",
+    "totalVerifications": 8,
+    "totalConsultations": 6,
+    "education": [
+      "LL.B (Honours), Eastern University"
+    ],
+    "educationBn": [
+      "এলএল.বি (সম্মান), ইস্টার্ন ইউনিভার্সিটি"
+    ],
+    "isAvailableToday": false,
+    "awayNotice": "Bar Council enrollment review in progress",
+    "licenseDocumentUrl": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22400%22%20height%3D%22250%22%3E%0A%20%20%20%20%3Crect%20width%3D%22400%22%20height%3D%22250%22%20fill%3D%22%23f6ece3%22%20stroke%3D%22%23917670%22%20stroke-width%3D%224%22%2F%3E%0A%20%20%20%20%3Ctext%20x%3D%22200%22%20y%3D%2245%22%20font-family%3D%22monospace%22%20font-size%3D%2214%22%20font-weight%3D%22bold%22%20fill%3D%22%236e5750%22%20text-anchor%3D%22middle%22%3EBANGLADESH%20BAR%20COUNCIL%3C%2Ftext%3E%0A%20%20%20%20%3Ctext%20x%3D%22200%22%20y%3D%2268%22%20font-family%3D%22monospace%22%20font-size%3D%2210%22%20fill%3D%22%23917670%22%20text-anchor%3D%22middle%22%3EADVOCATE%20IDENTITY%20CARD%20(SAMPLE)%3C%2Ftext%3E%0A%20%20%20%20%3Crect%20x%3D%2230%22%20y%3D%2290%22%20width%3D%2270%22%20height%3D%2290%22%20fill%3D%22%23e3d5cd%22%20stroke%3D%22%23917670%22%2F%3E%0A%20%20%20%20%3Ctext%20x%3D%22130%22%20y%3D%22115%22%20font-family%3D%22monospace%22%20font-size%3D%2212%22%20fill%3D%22%233a2e2b%22%3EAdvocate%20Rashed%20Khan%20Menon%3C%2Ftext%3E%0A%20%20%20%20%3Ctext%20x%3D%22130%22%20y%3D%22140%22%20font-family%3D%22monospace%22%20font-size%3D%2211%22%20fill%3D%22%236e5750%22%3EEnrolment%3A%20BC%2FDH%2F2023%2F16400%3C%2Ftext%3E%0A%20%20%20%20%3Ctext%20x%3D%22130%22%20y%3D%22162%22%20font-family%3D%22monospace%22%20font-size%3D%2210%22%20fill%3D%22%23917670%22%3EStatus%3A%20Active%20Practising%20Advocate%3C%2Ftext%3E%0A%20%20%20%20%3Ctext%20x%3D%22200%22%20y%3D%22225%22%20font-family%3D%22monospace%22%20font-size%3D%229%22%20fill%3D%22%23b7a7a9%22%20text-anchor%3D%22middle%22%3ESpecimen%20document%20for%20demo%20purposes%20only%3C%2Ftext%3E%0A%20%20%3C%2Fsvg%3E",
+    "licenseDocumentName": "bar_id_rashed_khan_menon.svg"
+  },
+  {
+    "id": "lawyer-11",
+    "userId": "user-lawyer-11",
+    "fullName": "Advocate Nasima Sultana",
+    "fullNameBn": "অ্যাডভোকেট নাসিমা সুলতানা",
+    "title": "Advocate, Mymensingh District Bar",
+    "titleBn": "আইনজীবী, ময়মনসিংহ জেলা বার",
+    "avatarUrl": "/logo.svg",
+    "district": "Mymensingh",
+    "districtBn": "ময়মনসিংহ",
+    "barEnrolmentNo": "BC/MYM/2022/14102",
+    "enrolmentYear": 2022,
+    "verificationStatus": "pending",
+    "practiceAreas": [
+      "Dowry Prohibition",
+      "Domestic Violence",
+      "Family Law"
+    ],
+    "practiceAreasBn": [
+      "যৌতুক নিরোধ",
+      "পারিবারিক সহিংসতা",
+      "পরিবার আইন"
+    ],
+    "courts": [
+      "Mymensingh District & Sessions Court"
+    ],
+    "courtsBn": [
+      "ময়মনসিংহ জেলা ও দায়রা আদালত"
+    ],
+    "languages": [
+      "Bengali"
+    ],
+    "bioBn": "যৌতুক ও পারিবারিক নির্যাতনের শিকার নারীদের পাশে থেকে আইনি পরামর্শ দিতে আগ্রহী। সনদ যাচাই প্রক্রিয়াধীন।",
+    "bioEn": "Practicing advocate in Mymensingh focusing on domestic dispute mediation. Bar credentials in review.",
+    "experienceYears": 3,
+    "startingFeeBdt": 300,
+    "fees": [
+      {
+        "mode": "chat",
+        "feeBdt": 300,
+        "durationMinutes": 20
+      },
+      {
+        "mode": "audio",
+        "feeBdt": 500,
+        "durationMinutes": 30
+      },
+      {
+        "mode": "video",
+        "feeBdt": 750,
+        "durationMinutes": 30
+      },
+      {
+        "mode": "in_person",
+        "feeBdt": 1200,
+        "durationMinutes": 45
+      }
+    ],
+    "rating": 4.6,
+    "reviewCount": 3,
+    "responseTimeCommitment": "Usually responds in 4 hours",
+    "responseTimeCommitmentBn": "সাধারণত ৪ ঘণ্টার মধ্যে সাড়া দেন",
+    "totalVerifications": 5,
+    "totalConsultations": 4,
+    "education": [
+      "LL.B, National University Bangladesh"
+    ],
+    "educationBn": [
+      "এলএল.বি, জাতীয় বিশ্ববিদ্যালয়"
+    ],
+    "isAvailableToday": true
+  },
+  {
+    "id": "lawyer-12",
+    "userId": "user-lawyer-12",
+    "fullName": "Advocate Kamal Hossain Molla",
+    "fullNameBn": "অ্যাডভোকেট কামাল হোসেন মোল্লা",
+    "title": "Advocate (Credentials Rejected)",
+    "titleBn": "আইনজীবী (সনদপত্র প্রত্যাখ্যাত)",
+    "avatarUrl": "/logo.svg",
+    "district": "Dhaka",
+    "districtBn": "ঢাকা",
+    "barEnrolmentNo": "BC/REJ/2021/0019",
+    "enrolmentYear": 2021,
+    "verificationStatus": "rejected",
+    "practiceAreas": [
+      "General Practice"
+    ],
+    "practiceAreasBn": [
+      "সাধারণ আইন"
+    ],
+    "courts": [
+      "Dhaka Bar"
+    ],
+    "courtsBn": [
+      "ঢাকা বার"
+    ],
+    "languages": [
+      "Bengali"
+    ],
+    "bioBn": "দাখিলকৃত বার কাউন্সিলের সনদপত্রে অসঙ্গতির কারণে এই অ্যাকাউন্টটি বর্তমানে স্থগিত রাখা হয়েছে।",
+    "bioEn": "This profile is currently unverified and non-functional due to invalid bar credential submission.",
+    "experienceYears": 1,
+    "startingFeeBdt": 0,
+    "fees": [],
+    "rating": 0,
+    "reviewCount": 0,
+    "responseTimeCommitment": "Unavailable",
+    "responseTimeCommitmentBn": "অনুপলব্ধ",
+    "totalVerifications": 0,
+    "totalConsultations": 0,
+    "education": [
+      "Under Audit"
+    ],
+    "educationBn": [
+      "নিরীক্ষাধীন"
+    ],
+    "isAvailableToday": false,
+    "awayNotice": "Account rejected during administrative verification"
+  }
+]
