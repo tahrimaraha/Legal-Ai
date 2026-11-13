@@ -25,4 +25,4 @@ venv/
 vite.config.ts.timestamp-*.mjs
 
 # local claude settings
-.claude/settings.local.json
+.claude/
