@@ -17,7 +17,7 @@ window.crypto = window.crypto || {}; window.crypto.randomUUID = () => 'id-' + Ma
 window.console.error = (...a) => errors.push(a.join(' '));
 window.console.warn = (...a) => errors.push(a.join(' '));
 
-const code = readFileSync('.verify/out/app.js', 'utf8');
+const code = readFileSync('.verify_tmp/out/app.js', 'utf8');
 window.eval(code);
 
 await new Promise((r) => setTimeout(r, 900));

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle2, Download, Copy, Share2, Sparkles } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
 import { listDraftTemplates, createDocumentDraft } from '../../lib/api';
 import { DocumentPreview } from '../../components/ui/DocumentPreview';
@@ -8,7 +8,7 @@ import { ProgressRail } from '../../components/ui/ProgressRail';
 import { Input, Textarea, Select } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { Skeleton } from '../../components/ui/EmptyState';
-import type { DraftTemplate } from '../../mocks/types';
+import type { DraftTemplate, DraftStep } from '../../mocks/types';
 
 export default function CitizenDraftWizardPage() {
   const [searchParams] = useSearchParams();
@@ -173,7 +173,7 @@ ${answers.sender_info || answers.complainant_name || answers.applicant_details |
               {currentStep.fieldType === 'text' && (
                 <Input
                   type="text"
-                  placeholder={currentStep.placeholderBn}
+                  placeholder={lang === 'bn' ? currentStep.placeholderBn : currentStep.placeholderEn ?? currentStep.placeholderBn}
                   value={answers[currentStep.id] || ''}
                   onChange={(e) => handleAnswerChange(e.target.value)}
                   autoFocus
@@ -183,7 +183,7 @@ ${answers.sender_info || answers.complainant_name || answers.applicant_details |
               {currentStep.fieldType === 'number' && (
                 <Input
                   type="number"
-                  placeholder={currentStep.placeholderBn}
+                  placeholder={lang === 'bn' ? currentStep.placeholderBn : currentStep.placeholderEn ?? currentStep.placeholderBn}
                   value={answers[currentStep.id] || ''}
                   onChange={(e) => handleAnswerChange(e.target.value)}
                   autoFocus
@@ -201,7 +201,7 @@ ${answers.sender_info || answers.complainant_name || answers.applicant_details |
 
               {currentStep.fieldType === 'textarea' && (
                 <Textarea
-                  placeholder={currentStep.placeholderBn}
+                  placeholder={lang === 'bn' ? currentStep.placeholderBn : currentStep.placeholderEn ?? currentStep.placeholderBn}
                   value={answers[currentStep.id] || ''}
                   onChange={(e) => handleAnswerChange(e.target.value)}
                   rows={4}

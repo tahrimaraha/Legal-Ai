@@ -4,18 +4,13 @@ Frontend for a bilingual (Bangla / English) legal-information assistant for Bang
 citizens. Every answer is grounded in a curated statute corpus and cites the Act and Section
 it came from.
 
-Built to the spec in `SPEC.md`. All data comes from the FastAPI backend in `../backend`.
+Built to the spec in `SPEC.md`. Frontend only — no backend, no keys, all data mocked.
 
 ## Run it
 
 ```bash
-# backend first (Postgres, Redis, API on :8000), then seed demo accounts and content
-cd ../backend && docker compose up -d
-docker compose exec api sh -c "python -m scripts.seed_demo_users && python -m scripts.seed_content"
-
-cd ../frontend
 npm install
-npm run dev      # http://localhost:5173 — demo logins use password demo-password-123
+npm run dev      # http://localhost:5173
 npm run build    # type-check + production build
 npm run smoke    # headless render + interaction checks (jsdom)
 ```
@@ -73,14 +68,15 @@ system is on the chat composer.
 - Everything above is disabled or shortened under `prefers-reduced-motion: reduce`; the
   scale renders level.
 
-## The backend seam
+## Wiring the Python backend
 
-`src/lib/api.ts` is the only file that talks to the backend (`VITE_API_URL`, default
-`http://localhost:8000/api/v1`). Every function returns the shape in `src/mocks/types.ts` and
-attaches the session token from `localStorage`; a 401 logs the user out. The endpoint list is in
-`docs/api-contract.md`. `src/mocks/` now only supplies types and the static landing-page content.
+`src/lib/api.ts` is the only seam. Every function there returns exactly the shape the real
+endpoint will return, typed against `src/mocks/types.ts` (`Message`, `Citation`, `Statute`,
+`GlossaryTerm`, `DraftTemplate`, `CorpusDocument`, `Conversation`). Replace the bodies with
+`fetch` calls to `VITE_API_URL` and change nothing else — no component props change.
 
-Only `sendForgotPassword` is still a stub — there is no password-reset endpoint yet.
+Suggested FastAPI surface: `POST /chat`, `GET /conversations`, `POST /feedback`,
+`GET /search`, `GET /statutes`, `GET /admin/corpus`, `POST /admin/corpus/reindex`.
 
 ## Structure
 

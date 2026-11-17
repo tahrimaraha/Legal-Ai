@@ -1,12 +1,16 @@
-"""Request/response schemas for `/auth/*`."""
+"""Request/response schemas for `/auth/*`. JSON keys are camelCase to match the
+frontend API contract; Python attributes stay snake_case."""
 from __future__ import annotations
 
 from datetime import datetime
 from typing import Optional
 
-from pydantic import EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic.alias_generators import to_camel
 
-from app.schemas.common import CamelModel, OkResponse  # noqa: F401  (OkResponse re-exported)
+
+class CamelModel(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 
 class RegisterCitizenRequest(CamelModel):
@@ -14,7 +18,7 @@ class RegisterCitizenRequest(CamelModel):
     email: EmailStr
     phone: Optional[str] = None
     district: Optional[str] = None
-    password: str = Field(min_length=8, max_length=128)
+    password: str = Field(min_length=1, max_length=256)  # rules checked server-side with a clear message
 
 
 class RegisterLawyerRequest(CamelModel):
@@ -22,7 +26,7 @@ class RegisterLawyerRequest(CamelModel):
     email: EmailStr
     phone: str
     district: str
-    password: str = Field(min_length=8, max_length=128)
+    password: str = Field(min_length=1, max_length=256)
     bar_enrolment_no: str = Field(min_length=1, max_length=64)
     enrolment_year: int
     practice_areas: list[str] = Field(default_factory=list)
@@ -37,38 +41,43 @@ class LoginRequest(CamelModel):
     password: str
 
 
-class ConfirmEmailRequest(CamelModel):
-    email: EmailStr
-    code: str = Field(min_length=1, max_length=16)
+class RegistrationPendingResponse(CamelModel):
+    """Registration succeeded; the account works once the emailed link is opened."""
+    status: str = "verification_required"
+    email: str
 
 
-class ForgotPasswordRequest(CamelModel):
+class VerifyEmailLinkRequest(CamelModel):
+    user_id: str = Field(min_length=1, max_length=64)
+    token: str = Field(min_length=10, max_length=200)
+
+
+class VerifyEmailLinkResponse(CamelModel):
+    status: str  # "verified" | "already_verified"
+    email: Optional[str]
+
+
+class EmailOnlyRequest(CamelModel):
     email: EmailStr
+
+
+class ResetCodeRequest(CamelModel):
+    email: EmailStr
+    code: str = Field(min_length=1, max_length=12)
+
+
+class ResetCodeResponse(CamelModel):
+    reset_token: str
+    expires_in_minutes: int
 
 
 class ResetPasswordRequest(CamelModel):
-    email: EmailStr
-    code: str = Field(min_length=1, max_length=16)
-    new_password: str = Field(min_length=8, max_length=128)
+    reset_token: str = Field(min_length=10, max_length=200)
+    new_password: str = Field(min_length=1, max_length=256)
 
 
-class ChangePasswordRequest(CamelModel):
-    current_password: str = Field(min_length=1, max_length=128)
-    new_password: str = Field(min_length=8, max_length=128)
-
-
-class ResendVerificationRequest(CamelModel):
-    email: EmailStr
-
-
-class ResendVerificationResponse(CamelModel):
-    ok: bool = True
-    # Only populated in local development with the console email provider.
-    dev_verification_code: Optional[str] = None
-
-
-class VerifyEmailRequest(CamelModel):
-    code: str = Field(min_length=1, max_length=16)
+class SessionRequest(CamelModel):
+    user_id: str = Field(min_length=1, max_length=64)
 
 
 class UserOut(CamelModel):
@@ -81,10 +90,7 @@ class UserOut(CamelModel):
     avatar_url: Optional[str]
     is_verified: bool
     created_at: datetime
-    # Lawyers only: "pending" | "approved" | "rejected" | "suspended". The lawyer
-    # portal is closed until "approved".
-    lawyer_status: Optional[str] = None
-    lawyer_rejection_reason: Optional[str] = None
+    approval_status: Optional[str] = None  # For lawyers: 'pending', 'approved', 'rejected'
 
 
 class LawyerProfileOut(CamelModel):
@@ -104,13 +110,11 @@ class TokenResponse(CamelModel):
     token: str
 
 
-class RegisterResponse(TokenResponse):
-    # Only populated in local development with the console email provider.
-    dev_verification_code: Optional[str] = None
-
-
 class LawyerRegisterResponse(CamelModel):
     user: UserOut
     lawyer_profile: LawyerProfileOut
     token: str
-    dev_verification_code: Optional[str] = None
+
+
+class OkResponse(CamelModel):
+    ok: bool = True

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, ArrowRight, Calendar } from 'lucide-react';
+import { FileText, Plus, ArrowRight, Download, Calendar, Copy } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
 import { listDocuments, listDraftTemplates } from '../../lib/api';
 import { Button } from '../../components/ui/Button';
@@ -8,7 +8,7 @@ import { Skeleton, EmptyState } from '../../components/ui/EmptyState';
 import type { DraftDocument, DraftTemplate } from '../../mocks/types';
 
 export default function CitizenDocumentsPage() {
-  const { lang } = useLang();
+  const { lang, num } = useLang();
   const [documents, setDocuments] = useState<DraftDocument[]>([]);
   const [templates, setTemplates] = useState<DraftTemplate[]>([]);
   const [loading, setLoading] = useState(true);

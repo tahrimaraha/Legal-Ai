@@ -1,10 +1,17 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
+  Calendar,
+  Clock,
   Mail,
   FileText,
   Star,
+  CheckCircle2,
+  AlertCircle,
+  Video,
+  Phone,
+  MessageSquare,
   UserCheck,
   Pencil,
 } from 'lucide-react';
@@ -17,10 +24,12 @@ import { Modal } from '../../components/ui/Modal';
 import { Input, Textarea } from '../../components/ui/Input';
 import { Skeleton, ErrorState } from '../../components/ui/EmptyState';
 import type { ConsultationRequest } from '../../mocks/types';
+import { formatSlot, isPastSlot } from '../../lib/slots';
 
 export default function CitizenConsultationDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { lang, num } = useLang();
+  const navigate = useNavigate();
 
   const [consultation, setConsultation] = useState<ConsultationRequest | null>(null);
   const [loading, setLoading] = useState(true);
@@ -151,7 +160,7 @@ export default function CitizenConsultationDetailPage() {
                 <span className="font-mono text-[10px] text-granite uppercase block">Confirmed Slot</span>
                 <span className="font-bold text-clay-deep font-mono">
                   {consultation.scheduledSlot
-                    ? `${consultation.scheduledSlot.date} @ ${consultation.scheduledSlot.time}`
+                    ? formatSlot(consultation.scheduledSlot, lang) + (isPastSlot(consultation.scheduledSlot) && consultation.status === 'scheduled' ? (lang === 'bn' ? ' (সময় পার হয়েছে)' : ' (time passed)') : '')
                     : 'Pending'}
                 </span>
               </div>

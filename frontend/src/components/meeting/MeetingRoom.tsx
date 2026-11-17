@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Mic,
   MicOff,
@@ -9,25 +9,25 @@ import {
   Check,
   UserCircle2,
   Lock,
-  Link2,
+  Loader2,
+  Wifi,
+  Volume2,
+  AlertTriangle,
 } from 'lucide-react';
 import { Button } from '../ui/Button';
+import { useMeetingCall, type CallStatus } from '../../lib/useMeetingCall';
 import type { Meeting } from '../../mocks/types';
 
 function formatElapsed(seconds: number): string {
-  const m = Math.floor(seconds / 60)
-    .toString()
-    .padStart(2, '0');
-  const s = Math.floor(seconds % 60)
-    .toString()
-    .padStart(2, '0');
+  const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+  const s = Math.floor(seconds % 60).toString().padStart(2, '0');
   return `${m}:${s}`;
 }
 
 function CopyField({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false);
   return (
-    <div className="space-y-1">
+    <div className="space-y-1 min-w-0">
       <span className="font-mono text-[10px] text-granite uppercase block">{label}</span>
       <div className="flex items-center gap-1.5">
         <code className="flex-1 truncate rounded bg-bone px-2 py-1.5 text-xs text-ink border border-granite-soft font-mono">
@@ -50,6 +50,85 @@ function CopyField({ label, value }: { label: string; value: string }) {
   );
 }
 
+/** A <video> bound to a MediaStream. Remote video plays with sound; reports if the browser blocked autoplay. */
+function StreamVideo({
+  stream,
+  muted,
+  mirror,
+  className = '',
+  onAutoplayBlocked,
+}: {
+  stream: MediaStream | null;
+  muted?: boolean;
+  mirror?: boolean;
+  className?: string;
+  onAutoplayBlocked?: (blocked: boolean) => void;
+}) {
+  const ref = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.srcObject = stream;
+    if (stream) {
+      el.play().then(
+        () => onAutoplayBlocked?.(false),
+        () => onAutoplayBlocked?.(true),
+      );
+    }
+  }, [stream, onAutoplayBlocked]);
+  return (
+    <video
+      ref={ref}
+      autoPlay
+      playsInline
+      muted={muted}
+      className={`h-full w-full object-cover ${mirror ? '-scale-x-100' : ''} ${className}`}
+    />
+  );
+}
+
+const STATUS_TEXT: Record<CallStatus, (other: string) => string> = {
+  connecting: () => 'Connecting to the meeting…',
+  waiting: (o) => `Waiting for ${o} to join…`,
+  negotiating: (o) => `Connecting to ${o}…`,
+  connected: () => '',
+  reconnecting: () => 'Connection lost — reconnecting…',
+  ended: () => 'This meeting has ended.',
+  error: () => 'Could not join the meeting.',
+};
+
+function RoundToggle({
+  on,
+  onClick,
+  disabled,
+  onIcon: OnIcon,
+  offIcon: OffIcon,
+  titleOn,
+  titleOff,
+}: {
+  on: boolean;
+  onClick: () => void;
+  disabled?: boolean;
+  onIcon: typeof Mic;
+  offIcon: typeof Mic;
+  titleOn: string;
+  titleOff: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={disabled ? 'Not available on this device' : on ? titleOn : titleOff}
+      className={`p-3 rounded-full border transition disabled:opacity-40 disabled:cursor-not-allowed ${
+        on ? 'border-granite bg-white text-ink hover:border-clay' : 'bg-brick text-white border-brick'
+      }`}
+    >
+      {on ? <OnIcon className="h-4 w-4" /> : <OffIcon className="h-4 w-4" />}
+    </button>
+  );
+}
+
 interface MeetingRoomProps {
   meeting: Meeting;
   role: 'host' | 'participant';
@@ -58,92 +137,100 @@ interface MeetingRoomProps {
   onLeave: () => void;
   onEndForEveryone?: () => void;
   ending?: boolean;
-  /** Extra host-only content under the meeting info (e.g. the invite panel). */
-  hostPanel?: ReactNode;
 }
 
-export function MeetingRoom({ meeting, role, selfName, otherName, onLeave, onEndForEveryone, ending, hostPanel }: MeetingRoomProps) {
+export function MeetingRoom({ meeting, role, selfName, otherName, onLeave, onEndForEveryone, ending }: MeetingRoomProps) {
   const [joined, setJoined] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [mediaReady, setMediaReady] = useState(false);
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [showInfo, setShowInfo] = useState(role === 'host');
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const [audioBlocked, setAudioBlocked] = useState(false);
 
+  const call = useMeetingCall({ code: meeting.code, enabled: joined, localStream: stream, micOn, camOn });
+  const peerName = call.peer?.name || otherName;
+
+  // Camera + mic. If the camera is missing or refused, fall back to audio only, then to receive-only.
   useEffect(() => {
     let active = true;
-    let localStream: MediaStream | null = null;
-    navigator.mediaDevices
-      ?.getUserMedia({ video: true, audio: true })
-      .then((s) => {
-        if (!active) {
-          s.getTracks().forEach((t) => t.stop());
-          return;
-        }
-        localStream = s;
-        setStream(s);
-      })
-      .catch((err) => {
-        if (active) setMediaError(err?.message || 'Camera/microphone permission was denied.');
-      });
+    let local: MediaStream | null = null;
+    const take = (s: MediaStream) => {
+      if (!active) return s.getTracks().forEach((t) => t.stop());
+      local = s;
+      setStream(s);
+      setMediaReady(true);
+    };
+    const media = navigator.mediaDevices;
+    if (!media?.getUserMedia) {
+      setMediaError(
+        window.isSecureContext
+          ? 'This browser does not support camera access.'
+          : 'Camera and microphone need a secure (https) connection.',
+      );
+      setMediaReady(true);
+      return;
+    }
+    media
+      .getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } }, audio: { echoCancellation: true, noiseSuppression: true } })
+      .then(take)
+      .catch(() =>
+        media
+          .getUserMedia({ audio: true })
+          .then((s) => {
+            setCamOn(false);
+            setMediaError('No camera available — you will join with audio only.');
+            take(s);
+          })
+          .catch((err) => {
+            if (!active) return;
+            setMicOn(false);
+            setCamOn(false);
+            setMediaError(
+              (err?.name === 'NotAllowedError'
+                ? 'Camera and microphone permission was denied.'
+                : 'No camera or microphone was found.') + ' You can still join to see and hear the other side.',
+            );
+            setMediaReady(true);
+          }),
+      );
     return () => {
       active = false;
-      localStream?.getTracks().forEach((t) => t.stop());
+      local?.getTracks().forEach((t) => t.stop());
     };
   }, []);
 
-  useEffect(() => {
-    if (videoRef.current) videoRef.current.srcObject = stream;
-  }, [stream, joined, camOn]);
+  const hasAudio = !!stream?.getAudioTracks().length;
+  const hasVideo = !!stream?.getVideoTracks().length;
 
   useEffect(() => {
     stream?.getAudioTracks().forEach((t) => (t.enabled = micOn));
   }, [micOn, stream]);
-
   useEffect(() => {
     stream?.getVideoTracks().forEach((t) => (t.enabled = camOn));
   }, [camOn, stream]);
 
   useEffect(() => {
-    if (!joined) return;
+    if (call.status !== 'connected') return;
     const id = setInterval(() => setElapsed((e) => e + 1), 1000);
     return () => clearInterval(id);
-  }, [joined]);
+  }, [call.status]);
 
-  useEffect(() => {
-    return () => {
-      stream?.getTracks().forEach((t) => t.stop());
-    };
-  }, [stream]);
+  const leave = () => {
+    stream?.getTracks().forEach((t) => t.stop());
+    onLeave();
+  };
 
-  const renderVideoTile = (isSelf: boolean, name: string) => (
-    <div className="relative aspect-video rounded-lg bg-ink overflow-hidden border border-granite-soft flex items-center justify-center">
-      {isSelf && camOn && stream ? (
-        <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover -scale-x-100" />
-      ) : (
-        <div className="flex flex-col items-center gap-2 text-bone/70">
-          <UserCircle2 className="h-16 w-16" />
-          <span className="text-xs font-medium">{name}</span>
-          {!isSelf && (
-            <span className="text-[10px] text-bone/50 max-w-[220px] text-center px-3">
-              Live video needs {name}'s own device — this preview only streams your own camera.
-            </span>
-          )}
-        </div>
-      )}
-      <span className="absolute bottom-2 left-2 text-[11px] font-mono text-bone bg-black/50 px-2 py-0.5 rounded">
-        {name} {isSelf && '(you)'}
-      </span>
-      {isSelf && !micOn && (
-        <span className="absolute top-2 right-2 p-1 rounded bg-brick/80">
-          <MicOff className="h-3 w-3 text-white" />
-        </span>
-      )}
-    </div>
+  const controls = (
+    <>
+      <RoundToggle on={micOn} onClick={() => setMicOn((v) => !v)} disabled={!hasAudio} onIcon={Mic} offIcon={MicOff} titleOn="Mute mic" titleOff="Unmute mic" />
+      <RoundToggle on={camOn} onClick={() => setCamOn((v) => !v)} disabled={!hasVideo} onIcon={VideoIcon} offIcon={VideoOff} titleOn="Turn off camera" titleOff="Turn on camera" />
+    </>
   );
 
+  // ——— Pre-join lobby ———
   if (!joined) {
     return (
       <div className="max-w-3xl mx-auto space-y-6 py-6">
@@ -155,46 +242,30 @@ export function MeetingRoom({ meeting, role, selfName, otherName, onLeave, onEnd
         </div>
 
         <div className="rounded-lg bg-ink aspect-video max-w-lg mx-auto overflow-hidden border border-granite-soft flex items-center justify-center relative">
-          {camOn && stream ? (
-            <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover -scale-x-100" />
+          {camOn && hasVideo ? (
+            <StreamVideo stream={stream} muted mirror />
           ) : (
             <div className="flex flex-col items-center gap-2 text-bone/70">
-              <UserCircle2 className="h-16 w-16" />
-              <span className="text-xs">{camOn ? 'Starting camera…' : 'Camera off'}</span>
+              {mediaReady ? <UserCircle2 className="h-16 w-16" /> : <Loader2 className="h-10 w-10 animate-spin" />}
+              <span className="text-xs">{!mediaReady ? 'Starting camera…' : 'Camera off'}</span>
             </div>
           )}
         </div>
 
         {mediaError && (
-          <p className="text-xs text-brick text-center max-w-md mx-auto">
-            {mediaError} You can still join with camera/mic off.
+          <p className="flex items-start justify-center gap-1.5 text-xs text-brick text-center max-w-md mx-auto">
+            <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+            <span>{mediaError}</span>
           </p>
         )}
 
-        <div className="flex items-center justify-center gap-3">
-          <button
-            type="button"
-            onClick={() => setMicOn((v) => !v)}
-            className={`p-3 rounded-full border transition ${micOn ? 'border-granite text-ink hover:border-clay' : 'bg-brick text-white border-brick'}`}
-            title={micOn ? 'Mute mic' : 'Unmute mic'}
-          >
-            {micOn ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
-          </button>
-          <button
-            type="button"
-            onClick={() => setCamOn((v) => !v)}
-            className={`p-3 rounded-full border transition ${camOn ? 'border-granite text-ink hover:border-clay' : 'bg-brick text-white border-brick'}`}
-            title={camOn ? 'Turn off camera' : 'Turn on camera'}
-          >
-            {camOn ? <VideoIcon className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
-          </button>
-        </div>
+        <div className="flex items-center justify-center gap-3">{controls}</div>
 
         <div className="flex items-center justify-center gap-3 pt-2">
-          <Button variant="ghost" onClick={onLeave}>
+          <Button variant="ghost" onClick={leave}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={() => setJoined(true)}>
+          <Button variant="primary" onClick={() => setJoined(true)} disabled={!mediaReady}>
             {role === 'host' ? 'Start Meeting' : 'Join Now'}
           </Button>
         </div>
@@ -202,67 +273,120 @@ export function MeetingRoom({ meeting, role, selfName, otherName, onLeave, onEnd
     );
   }
 
+  // ——— Ended / can't join ———
+  if (call.status === 'ended' || call.status === 'error') {
+    return (
+      <div className="max-w-md mx-auto py-16 text-center space-y-4">
+        <div className="mx-auto h-14 w-14 rounded-full bg-clay-tint border border-clay flex items-center justify-center">
+          {call.status === 'ended' ? <PhoneOff className="h-6 w-6 text-clay-deep" /> : <AlertTriangle className="h-6 w-6 text-brick" />}
+        </div>
+        <h1 className="font-display text-xl font-bold text-ink">
+          {call.status === 'ended' ? 'Meeting ended' : 'Could not join'}
+        </h1>
+        <p className="text-xs text-granite">
+          {call.status === 'ended' ? `${meeting.hostLawyerName} has ended this meeting.` : call.error}
+        </p>
+        <Button variant="primary" onClick={leave}>
+          Back
+        </Button>
+      </div>
+    );
+  }
+
+  const live = call.status === 'connected';
+  const showRemoteVideo = live && call.remoteCam && !!call.remoteStream?.getVideoTracks().length;
+  const statusText = STATUS_TEXT[call.status](peerName);
+
+  // ——— In call ———
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h1 className="font-display text-lg font-bold text-ink">{meeting.title}</h1>
-          <p className="text-[11px] font-mono text-granite">
-            {formatElapsed(elapsed)} · {role === 'host' ? 'Hosting' : 'Participant'}
+          <p className="flex items-center gap-1.5 text-[11px] font-mono text-granite">
+            <span className={`inline-block h-2 w-2 rounded-full ${live ? 'bg-green-600' : 'bg-granite animate-pulse'}`} />
+            {live ? `Live · ${formatElapsed(elapsed)}` : statusText} · {role === 'host' ? 'Hosting' : 'Participant'}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowInfo((v) => !v)}
-          className="inline-flex items-center gap-1.5 text-[11px] font-mono uppercase text-clay-deep hover:text-ink transition border border-granite-soft rounded px-2.5 py-1.5"
-        >
-          <Lock className="h-3 w-3" />
-          Meeting Info
-        </button>
+        {role === 'host' && (
+          <button
+            type="button"
+            onClick={() => setShowInfo((v) => !v)}
+            className="inline-flex items-center gap-1.5 text-[11px] font-mono uppercase text-clay-deep hover:text-ink transition border border-granite-soft rounded px-2.5 py-1.5"
+          >
+            <Lock className="h-3 w-3" />
+            Meeting Info
+          </button>
+        )}
       </div>
 
-      {showInfo && role === 'host' && (
-        <div className="space-y-3">
-          <div className="rounded border border-granite bg-white p-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <CopyField label="Meeting Code" value={meeting.code} />
-            <CopyField label="Password" value={meeting.password} />
-            <CopyField label="Invite Link (one-click join)" value={meeting.link} />
-          </div>
-          {hostPanel}
-        </div>
-      )}
-      {showInfo && role !== 'host' && (
-        <div className="rounded border border-granite bg-white p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {role === 'host' && showInfo && (
+        <div className="rounded border border-granite bg-white p-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
           <CopyField label="Meeting Code" value={meeting.code} />
-          <CopyField label="Meeting Link" value={meeting.link} />
+          <CopyField label="Password" value={meeting.password} />
+          <CopyField label="Shareable Link" value={meeting.link} />
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {renderVideoTile(true, selfName)}
-        {renderVideoTile(false, otherName)}
+      {/* Remote (large) with self view picture-in-picture */}
+      <div className="relative aspect-video max-h-[70vh] w-full rounded-lg bg-ink overflow-hidden border border-granite-soft">
+        {/* Keep the remote <video> mounted while connected so audio plays even with their camera off. */}
+        {call.remoteStream && (
+          <div className={showRemoteVideo ? 'absolute inset-0' : 'absolute h-px w-px opacity-0'}>
+            <StreamVideo stream={call.remoteStream} onAutoplayBlocked={setAudioBlocked} className="object-contain" />
+          </div>
+        )}
+        {!showRemoteVideo && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-bone/80 px-4 text-center">
+            {live ? <UserCircle2 className="h-20 w-20" /> : <Loader2 className="h-10 w-10 animate-spin" />}
+            <span className="text-sm font-medium">{live ? `${peerName} turned off their camera` : statusText}</span>
+            {call.status === 'waiting' && role === 'host' && (
+              <span className="text-[11px] text-bone/50 max-w-xs">Share the link, or the meeting code and password, with your client.</span>
+            )}
+          </div>
+        )}
+
+        {live && (
+          <span className="absolute bottom-3 left-3 flex items-center gap-1.5 text-[11px] font-mono text-bone bg-black/55 px-2 py-0.5 rounded">
+            {!call.remoteMic && <MicOff className="h-3 w-3 text-red-300" />}
+            {peerName}
+          </span>
+        )}
+
+        {audioBlocked && live && (
+          <button
+            type="button"
+            onClick={() => {
+              document.querySelectorAll('video').forEach((v) => {
+                if (!v.muted) v.play().then(() => setAudioBlocked(false)).catch(() => {});
+              });
+            }}
+            className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded bg-white px-3 py-1.5 text-xs font-semibold text-ink shadow"
+          >
+            <Volume2 className="h-3.5 w-3.5" /> Tap to turn on sound
+          </button>
+        )}
+
+        <div className="absolute bottom-3 right-3 w-28 sm:w-44 aspect-video rounded-md overflow-hidden border border-white/30 bg-black shadow-lg">
+          {camOn && hasVideo ? (
+            <StreamVideo stream={stream} muted mirror />
+          ) : (
+            <div className="h-full w-full flex items-center justify-center text-bone/70">
+              <UserCircle2 className="h-8 w-8" />
+            </div>
+          )}
+          <span className="absolute bottom-1 left-1 flex items-center gap-1 text-[10px] font-mono text-bone bg-black/55 px-1.5 rounded">
+            {!micOn && <MicOff className="h-2.5 w-2.5 text-red-300" />}
+            {selfName} (you)
+          </span>
+        </div>
       </div>
 
-      <div className="flex items-center justify-center gap-3 pt-2 border-t border-granite-soft pt-4">
+      <div className="flex items-center justify-center gap-3 border-t border-granite-soft pt-4 flex-wrap">
+        {controls}
         <button
           type="button"
-          onClick={() => setMicOn((v) => !v)}
-          className={`p-3 rounded-full border transition ${micOn ? 'border-granite text-ink hover:border-clay' : 'bg-brick text-white border-brick'}`}
-          title={micOn ? 'Mute mic' : 'Unmute mic'}
-        >
-          {micOn ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
-        </button>
-        <button
-          type="button"
-          onClick={() => setCamOn((v) => !v)}
-          className={`p-3 rounded-full border transition ${camOn ? 'border-granite text-ink hover:border-clay' : 'bg-brick text-white border-brick'}`}
-          title={camOn ? 'Turn off camera' : 'Turn on camera'}
-        >
-          {camOn ? <VideoIcon className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
-        </button>
-        <button
-          type="button"
-          onClick={onLeave}
+          onClick={leave}
           className="p-3 rounded-full bg-brick text-white hover:bg-brick/90 transition"
           title="Leave meeting"
         >
@@ -275,9 +399,9 @@ export function MeetingRoom({ meeting, role, selfName, otherName, onLeave, onEnd
         )}
       </div>
 
-      <p className="flex items-center justify-center gap-1.5 text-[10px] text-granite pt-1">
-        <Link2 className="h-3 w-3" />
-        Only your own camera is live in this preview — connecting {otherName}'s real video requires their device on a live signaling backend.
+      <p className="flex items-center justify-center gap-1.5 text-[10px] text-granite">
+        <Wifi className="h-3 w-3" />
+        Video and audio go directly between your devices and are encrypted end to end (WebRTC).
       </p>
     </div>
   );

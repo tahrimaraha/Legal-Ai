@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Home, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Home, MessageSquare } from 'lucide-react';
 import { useLang } from '../context/LanguageContext';
 import { Button } from '../components/ui/Button';
 

@@ -1,87 +1,208 @@
-"""`/lawyers` — the public directory, profiles and reviews; `PATCH /lawyers/me` for lawyers."""
+"""`/lawyers/*` — public lawyer directory, reviews, and a lawyer editing their own profile."""
 from __future__ import annotations
 
+from datetime import datetime, time, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from pydantic import BaseModel, Field
+from sqlalchemy import delete as sa_delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import require_approved_lawyer
+from app.core.exceptions import UnauthorizedError, ValidationAppError
+from app.core.security import get_current_user, require_roles
 from app.database import get_db
+from app.models.app_record import AppRecord
+from app.models.enums import ConsultationMode, LawyerApprovalStatus, UserRole
+from app.models.profile import AvailabilityRule, LawyerFee, LawyerProfile
 from app.models.user import User
-from app.schemas.lawyers import (
-    AvailabilityIn,
-    AvailabilityOut,
-    LawyerOut,
-    LawyerReviewOut,
-    LawyerUpdateRequest,
-)
-from app.schemas.payouts import MyEarningsOut, PayoutAccountIn, PayoutAccountOut
-from app.services import lawyer_service, payout_service
+from app.services import records
+from app.services.lawyer_directory import load_lawyer, load_lawyers, money
+from app.services.scheduling import active_rules, open_slots
 
 router = APIRouter()
+_optional_bearer = HTTPBearer(auto_error=False)
 
 
-@router.get("", response_model=list[LawyerOut])
+async def optional_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_optional_bearer),
+    db: AsyncSession = Depends(get_db),
+) -> Optional[User]:
+    if credentials is None:
+        return None
+    try:
+        return await get_current_user(credentials, db)
+    except UnauthorizedError:
+        return None
+
+
+class LawyerProfileUpdate(BaseModel):
+    fullName: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    fullNameBn: Optional[str] = Field(default=None, max_length=255)
+    title: Optional[str] = Field(default=None, max_length=255)
+    titleBn: Optional[str] = Field(default=None, max_length=255)
+    district: Optional[str] = Field(default=None, max_length=100)
+    bioEn: Optional[str] = Field(default=None, max_length=5000)
+    bioBn: Optional[str] = Field(default=None, max_length=5000)
+    startingFeeBdt: Optional[float] = Field(default=None, gt=0)
+    responseTimeCommitment: Optional[str] = Field(default=None, max_length=255)
+    responseTimeCommitmentBn: Optional[str] = Field(default=None, max_length=255)
+    education: Optional[list[str]] = None
+
+
+@router.get("/lawyers")
 async def list_lawyers(
-    area: Optional[str] = None, district: Optional[str] = None,
-    max_fee: Optional[float] = None, db: AsyncSession = Depends(get_db),
-) -> list[LawyerOut]:
-    """Approved lawyers only; `verifiedOnly` from the contract is therefore implicit."""
-    return await lawyer_service.list_lawyers(db, area=area, district=district, max_fee=max_fee)
+    area: Optional[str] = None,
+    district: Optional[str] = None,
+    maxFee: Optional[float] = Query(default=None, gt=0),
+    db: AsyncSession = Depends(get_db),
+) -> list[dict]:
+    """Approved lawyers only — unverified profiles are never offered to citizens."""
+    lawyers = await load_lawyers(db, statuses={LawyerApprovalStatus.APPROVED})
+    if district and district != "all":
+        lawyers = [l for l in lawyers if l["district"].lower() == district.lower()]
+    if area and area != "all":
+        needle = area.lower()
+        lawyers = [l for l in lawyers if any(needle in a.lower() for a in l["practiceAreas"])]
+    if maxFee:
+        lawyers = [l for l in lawyers if l["startingFeeBdt"] <= maxFee]
+    return lawyers
 
 
-@router.patch("/me", response_model=LawyerOut)
-async def update_me(
-    payload: LawyerUpdateRequest,
-    user: User = Depends(require_approved_lawyer), db: AsyncSession = Depends(get_db),
-) -> LawyerOut:
-    return await lawyer_service.update_me(db, user, payload)
+@router.get("/lawyers/{lawyer_id}")
+async def get_lawyer(
+    lawyer_id: str, viewer: Optional[User] = Depends(optional_user), db: AsyncSession = Depends(get_db)
+) -> dict:
+    uid = records.parse_uuid(lawyer_id)
+    lawyer = await load_lawyer(db, uid) if uid else None
+    is_self_or_admin = viewer is not None and (viewer.role == UserRole.ADMIN or viewer.id == uid)
+    if lawyer is None or (lawyer["verificationStatus"] != "verified" and not is_self_or_admin):
+        raise records.not_found("Lawyer")
+    return lawyer
 
 
-@router.get("/me/availability", response_model=AvailabilityOut)
-async def get_availability(
-    user: User = Depends(require_approved_lawyer), db: AsyncSession = Depends(get_db)
-) -> AvailabilityOut:
-    return await lawyer_service.get_availability(db, user)
+@router.get("/lawyers/{lawyer_id}/open-slots")
+async def lawyer_open_slots(
+    lawyer_id: str, days: int = Query(default=14, ge=1, le=60), db: AsyncSession = Depends(get_db)
+) -> dict:
+    """Bookable times (Bangladesh time) for an approved lawyer. `hasSchedule` is false when the lawyer
+    hasn't published weekly hours — the client may then propose any future time."""
+    uid = records.parse_uuid(lawyer_id)
+    profile = await db.get(LawyerProfile, uid) if uid else None
+    if profile is None or profile.approval_status != LawyerApprovalStatus.APPROVED:
+        raise records.not_found("Lawyer")
+    slots = await open_slots(db, uid, days)
+    return {"hasSchedule": bool(await active_rules(db, uid)), "slots": slots, "timezone": "Asia/Dhaka"}
 
 
-@router.put("/me/availability", response_model=AvailabilityOut)
+@router.get("/lawyers/{lawyer_id}/reviews")
+async def lawyer_reviews(lawyer_id: str, db: AsyncSession = Depends(get_db)) -> list[dict]:
+    uid = records.parse_uuid(lawyer_id)
+    if uid is None:
+        return []
+    rows = await db.scalars(
+        select(AppRecord)
+        .where(AppRecord.kind == "review", AppRecord.lawyer_id == uid)
+        .order_by(AppRecord.created_at.desc())
+    )
+    return [records.out(r) for r in rows.all()]
+
+
+@router.put("/lawyers/me")
+async def update_my_profile(
+    payload: LawyerProfileUpdate,
+    user: User = Depends(require_roles(UserRole.LAWYER)),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    profile = await db.get(LawyerProfile, user.id)
+    if profile is None:
+        raise records.not_found("Lawyer profile")
+
+    if payload.fullName:
+        user.full_name = payload.fullName.strip()
+    if payload.district is not None:
+        profile.district = payload.district.strip() or None
+    if payload.bioEn is not None:
+        profile.bio_en = payload.bioEn
+    if payload.bioBn is not None:
+        profile.bio_bn = payload.bioBn
+    if payload.startingFeeBdt is not None:
+        # The starting fee is the cheapest active fee; adjust that one (or create a chat fee).
+        fees = (await db.scalars(
+            select(LawyerFee).where(LawyerFee.lawyer_id == user.id, LawyerFee.is_active.is_(True)).order_by(LawyerFee.amount)
+        )).all()
+        if fees:
+            fees[0].amount = money(payload.startingFeeBdt)
+        else:
+            db.add(LawyerFee(lawyer_id=user.id, mode=ConsultationMode.CHAT, amount=money(payload.startingFeeBdt),
+                             currency="BDT", duration_minutes=20))
+
+    extra_fields = {
+        k: v for k, v in payload.model_dump(exclude_unset=True).items()
+        if k in {"fullNameBn", "title", "titleBn", "responseTimeCommitment", "responseTimeCommitmentBn", "education"}
+    }
+    if extra_fields:
+        extra = await db.scalar(
+            select(AppRecord).where(AppRecord.kind == "lawyer_extra", AppRecord.lawyer_id == user.id)
+        )
+        if extra is None:
+            await records.create(db, "lawyer_extra", extra_fields, lawyer_id=user.id)
+        else:
+            records.save(extra, {**extra.data, **extra_fields})
+
+    await db.commit()
+    return await load_lawyer(db, user.id)
+
+
+# --- Availability -------------------------------------------------------------
+
+WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]  # datetime.weekday() order
+SLOT_MINUTES = 90
+
+
+class AvailabilityIn(BaseModel):
+    vacationMode: bool = False
+    maxActiveConsultations: int = Field(default=5, ge=1, le=100)
+    slots: list[str] = Field(default_factory=list, max_length=100)  # e.g. "Sunday-16:00"
+
+
+def _parse_slot(slot: str) -> tuple[int, time]:
+    day, _, hhmm = slot.partition("-")
+    try:
+        return WEEKDAYS.index(day), datetime.strptime(hhmm, "%H:%M").time()
+    except ValueError as exc:
+        raise ValidationAppError(f"Invalid slot: {slot}", "অবৈধ সময়।") from exc
+
+
+@router.get("/lawyers/me/availability")
+async def get_availability(user: User = Depends(require_roles(UserRole.LAWYER)), db: AsyncSession = Depends(get_db)) -> dict:
+    rules = (await db.scalars(
+        select(AvailabilityRule).where(AvailabilityRule.lawyer_id == user.id, AvailabilityRule.is_active.is_(True))
+    )).all()
+    extra = await db.scalar(select(AppRecord.data).where(AppRecord.kind == "lawyer_extra", AppRecord.lawyer_id == user.id)) or {}
+    return {
+        "vacationMode": bool(extra.get("vacationMode", False)),
+        "maxActiveConsultations": int(extra.get("maxActiveConsultations", 5)),
+        "slots": sorted(f"{WEEKDAYS[r.weekday]}-{r.start_time.strftime('%H:%M')}" for r in rules),
+    }
+
+
+@router.put("/lawyers/me/availability")
 async def save_availability(
-    payload: AvailabilityIn,
-    user: User = Depends(require_approved_lawyer), db: AsyncSession = Depends(get_db),
-) -> AvailabilityOut:
-    return await lawyer_service.save_availability(db, user, payload)
-
-
-@router.get("/me/payout-account", response_model=PayoutAccountOut)
-async def get_payout_account(
-    user: User = Depends(require_approved_lawyer), db: AsyncSession = Depends(get_db)
-) -> PayoutAccountOut:
-    return await payout_service.get_account(db, user)
-
-
-@router.put("/me/payout-account", response_model=PayoutAccountOut)
-async def set_payout_account(
-    payload: PayoutAccountIn,
-    user: User = Depends(require_approved_lawyer), db: AsyncSession = Depends(get_db),
-) -> PayoutAccountOut:
-    """The bKash / Nagad / Rocket number the admin sends this lawyer's earnings to."""
-    return await payout_service.set_account(db, user, payload)
-
-
-@router.get("/me/earnings", response_model=MyEarningsOut)
-async def my_earnings(
-    user: User = Depends(require_approved_lawyer), db: AsyncSession = Depends(get_db)
-) -> MyEarningsOut:
-    return await payout_service.my_earnings(db, user)
-
-
-@router.get("/{lawyer_id}", response_model=LawyerOut)
-async def get_lawyer(lawyer_id: str, db: AsyncSession = Depends(get_db)) -> LawyerOut:
-    return await lawyer_service.get_lawyer(db, lawyer_id)
-
-
-@router.get("/{lawyer_id}/reviews", response_model=list[LawyerReviewOut])
-async def list_reviews(lawyer_id: str, db: AsyncSession = Depends(get_db)) -> list[LawyerReviewOut]:
-    return await lawyer_service.list_reviews(db, lawyer_id)
+    payload: AvailabilityIn, user: User = Depends(require_roles(UserRole.LAWYER)), db: AsyncSession = Depends(get_db)
+) -> dict:
+    parsed = sorted({_parse_slot(s) for s in payload.slots})
+    await db.execute(sa_delete(AvailabilityRule).where(AvailabilityRule.lawyer_id == user.id))
+    for weekday, start in parsed:
+        end = (datetime.combine(datetime.today(), start) + timedelta(minutes=SLOT_MINUTES)).time()
+        db.add(AvailabilityRule(lawyer_id=user.id, weekday=weekday, start_time=start, end_time=end,
+                                slot_minutes=SLOT_MINUTES, is_active=True))
+    extra = await db.scalar(select(AppRecord).where(AppRecord.kind == "lawyer_extra", AppRecord.lawyer_id == user.id))
+    settings_ = {"vacationMode": payload.vacationMode, "maxActiveConsultations": payload.maxActiveConsultations}
+    if extra is None:
+        await records.create(db, "lawyer_extra", settings_, lawyer_id=user.id)
+    else:
+        records.save(extra, {**extra.data, **settings_})
+    await db.commit()
+    return await get_availability(user, db)

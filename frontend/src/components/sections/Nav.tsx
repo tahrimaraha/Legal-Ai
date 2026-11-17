@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Menu, X } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
+import { Link } from 'react-router-dom';
 import { ButtonLink } from '../ui/Button';
 import { LanguageToggle } from '../ui/LanguageToggle';
 import { Logo } from '../ui/Logo';
 
-export function Nav() {
+/** `overlay`: transparent over a dark full-bleed hero until the page scrolls (landing page). */
+export function Nav({ overlay = false }: { overlay?: boolean }) {
   const { t } = useLang();
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -33,13 +35,12 @@ export function Nav() {
   ];
 
   return (
-    <motion.header
-      className="header-wood fixed inset-x-0 top-0 z-50 transition-colors duration-300"
-      animate={{
-        borderBottomColor: scrolled ? 'rgba(255, 214, 170, 0.18)' : 'rgba(255, 214, 170, 0)',
-      }}
-      transition={{ duration: 0.28 }}
-      style={{ borderBottomWidth: 1, borderBottomStyle: 'solid' }}
+    <header
+      className={`fixed inset-x-0 top-0 z-50 border-b transition-[background-color,box-shadow,border-color] duration-300 ${
+        overlay && !scrolled && !menuOpen
+          ? 'border-[#e9d8c8]/15 bg-transparent'
+          : 'header-wood border-[#e9d8c8]/15 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.6)]'
+      }`}
     >
       <a
         href="#main"
@@ -56,21 +57,28 @@ export function Nav() {
             <a
               key={l.href}
               href={l.href}
-              className="link-underline text-[0.875rem] xl:text-[0.9375rem] font-medium text-bone/80 hover:text-bone whitespace-nowrap"
+              className="link-underline text-[0.875rem] xl:text-[0.9375rem] font-medium text-[#f6ece3]/85 hover:text-white whitespace-nowrap"
             >
               {l.label}
             </a>
           ))}
         </nav>
 
-        <div className="hidden items-center gap-2 xl:gap-3 lg:flex flex-shrink-0">
+        <div className="hidden items-center gap-3 xl:gap-4 lg:flex flex-shrink-0">
           <LanguageToggle tone="invert" />
-          <ButtonLink to="/signin" variant="quiet" size="sm" className="!text-clay-tint hover:!text-bone">
+          <span aria-hidden="true" className="h-6 w-px bg-[#e9d8c8]/25" />
+          <Link
+            to="/signin"
+            className="rounded-md px-2 py-2 text-[0.9375rem] font-medium text-[#f6ece3]/90 transition hover:text-white"
+          >
             {t.nav.signIn}
-          </ButtonLink>
-          <ButtonLink to="/signin" variant="primary" size="sm">
+          </Link>
+          <Link
+            to="/signin"
+            className="rounded-lg bg-[#f6dcc2] px-5 py-2.5 text-[0.9375rem] font-semibold text-[#2a170c] transition hover:bg-[#fbe8d5]"
+          >
             {t.nav.getStarted}
-          </ButtonLink>
+          </Link>
         </div>
 
         <button
@@ -117,6 +125,6 @@ export function Nav() {
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.header>
+    </header>
   );
 }

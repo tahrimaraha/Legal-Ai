@@ -8,6 +8,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   XCircle,
+  Clock,
+  BookOpen,
   ChevronDown,
   ChevronUp,
   Plus,
@@ -26,7 +28,7 @@ import type { VerificationRequest, VerdictType } from '../../mocks/types';
 
 export default function LawyerReviewWorkspace() {
   const { id } = useParams<{ id: string }>();
-  const { lang } = useLang();
+  const { lang, num } = useLang();
   const { user } = useRole();
   const navigate = useNavigate();
 
@@ -120,12 +122,8 @@ export default function LawyerReviewWorkspace() {
   const handleFinalSubmit = async () => {
     setSubmitting(true);
     try {
+      // The lawyer's name and enrolment number are added by the backend from their session.
       await submitVerificationVerdict(request.id, {
-        lawyerId: user?.id || 'user-lawyer-3',
-        lawyerName: user?.name || 'Advocate Md. Rafiqul Islam',
-        lawyerNameBn: user?.nameBn || user?.name || 'অ্যাডভোকেট মো. রফিকুল ইসলাম',
-        lawyerAvatar: user?.avatarUrl || '/logo.svg',
-        lawyerEnrolmentNo: 'BC/CTG/2011/3190',
         verdict,
         correctedExplanationBn: correctedExplanation,
         correctedExplanationEn: correctedExplanation,

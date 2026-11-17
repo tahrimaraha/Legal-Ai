@@ -4,19 +4,30 @@ import { useRole } from '../../context/RoleContext';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { CheckCircle2 } from 'lucide-react';
-import { ChangePasswordForm } from '../../components/auth/ChangePasswordForm';
-import { LawyerEarningsPanel } from '../../components/lawyer/LawyerEarningsPanel';
+import { ApiError, updateMyAccount } from '../../lib/api';
 
 export default function LawyerSettingsPage() {
   const { lang } = useLang();
-  const { user } = useRole();
-  const [phone, setPhone] = useState(user?.phone || '+880 1819-334455');
+  const { user, token, login } = useRole();
+  const [phone, setPhone] = useState(user?.phone || '');
   const [savedToast, setSavedToast] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSavedToast(true);
-    setTimeout(() => setSavedToast(false), 2000);
+    setSaving(true);
+    setError('');
+    try {
+      const updated = await updateMyAccount({ phone });
+      if (token) login(updated, token);
+      setSavedToast(true);
+      setTimeout(() => setSavedToast(false), 2000);
+    } catch (err) {
+      setError(err instanceof ApiError ? (lang === 'bn' ? err.messageBn : err.message) : 'Could not save');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -30,6 +41,8 @@ export default function LawyerSettingsPage() {
         </p>
       </div>
 
+      {error && <div className="p-2.5 rounded bg-brick/10 border border-brick/30 text-xs text-brick font-medium">{error}</div>}
+
       {savedToast && (
         <div className="p-3 rounded bg-clay-tint border border-clay text-xs text-clay-deep font-semibold flex items-center gap-2">
           <CheckCircle2 className="h-4 w-4" />
@@ -41,7 +54,7 @@ export default function LawyerSettingsPage() {
         <Input
           type="text"
           label="Account Name"
-          value={user?.name || 'Advocate'}
+          value={user?.name || ''}
           disabled
           hint="Name is synchronized with Bar Council enrolment."
         />
@@ -49,7 +62,7 @@ export default function LawyerSettingsPage() {
         <Input
           type="email"
           label="Email Address"
-          value={user?.email || 'advocate@example.com'}
+          value={user?.email || ''}
           disabled
         />
 
@@ -61,20 +74,11 @@ export default function LawyerSettingsPage() {
         />
 
         <div className="pt-3 border-t border-granite-soft flex justify-end">
-          <Button size="sm" variant="primary" type="submit">
+          <Button size="sm" variant="primary" type="submit" loading={saving}>
             Save Changes
           </Button>
         </div>
       </form>
-
-      <LawyerEarningsPanel />
-
-      <div className="rounded border border-granite bg-white p-6 shadow-sm space-y-4">
-        <h2 className="font-mono text-label uppercase text-clay-deep font-semibold">
-          {lang === 'bn' ? 'পাসওয়ার্ড পরিবর্তন' : 'Change Password'}
-        </h2>
-        <ChangePasswordForm />
-      </div>
     </div>
   );
 }

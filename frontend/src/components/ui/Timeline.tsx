@@ -1,4 +1,4 @@
-import { CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { CheckCircle2, Clock, XCircle, AlertCircle } from 'lucide-react';
 import type { ConsultationStatus } from '../../mocks/types';
 
 interface TimelineItem {
@@ -11,6 +11,7 @@ export function Timeline({ items }: { items: TimelineItem[] }) {
   return (
     <div className="relative border-l border-granite-soft pl-4 ml-2 space-y-6 font-body">
       {items.map((item, idx) => {
+        const isLatest = idx === items.length - 1;
         const isSuccess = item.status === 'completed' || item.status === 'accepted' || item.status === 'scheduled';
         const isDeclined = item.status === 'declined' || item.status === 'cancelled';
 

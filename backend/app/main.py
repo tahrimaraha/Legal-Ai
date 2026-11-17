@@ -2,8 +2,6 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-import posixpath
-from pathlib import Path
 from typing import AsyncIterator
 
 import redis.asyncio as aioredis
@@ -11,25 +9,40 @@ from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.api.v1.chat import corpus_status
 from app.api.v1.router import api_router
 from app.config import settings
 from app.core.exceptions import AppError
 from app.core.logging import configure_logging, get_logger
 from app.core.middleware import RequestContextMiddleware
 from app.database import check_db_connection, engine
-from app.providers.storage import PRIVATE_FOLDERS, PUBLIC_PREFIX
 
 configure_logging()
 logger = get_logger(__name__)
+
+
+async def ensure_app_tables() -> None:
+    """Create the `app_records` table if missing (idempotent).
+
+    The database's recorded Alembic revision is not in this repo, so this table is created here
+    rather than through a migration.
+    """
+    from app.models.app_record import AppRecord
+
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(lambda sync_conn: AppRecord.__table__.create(sync_conn, checkfirst=True))
+    except Exception:
+        logger.exception("app_records_table_create_failed")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Set up and tear down process-wide resources (DB engine, Redis pool)."""
     app.state.redis = aioredis.from_url(settings.redis_url, decode_responses=True)
+    await ensure_app_tables()
     logger.info("app_startup", app_env=settings.app_env)
     try:
         yield
@@ -53,6 +66,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
+    allow_origin_regex=settings.cors_allow_lan_regex if settings.debug else None,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -150,8 +164,7 @@ async def readiness(request: Request) -> JSONResponse:
     checks = {
         "database": db_ok,
         "redis": redis_ok,
-        # Wired up once the RAG module (vector store + Gemini client) lands.
-        "vector_store": "not_configured",
+        "vector_store": corpus_status(),
         "gemini": "not_configured" if not settings.gemini_api_key else "configured",
     }
     is_ready = db_ok and redis_ok
@@ -162,21 +175,3 @@ async def readiness(request: Request) -> JSONResponse:
 
 
 app.include_router(api_router, prefix=settings.api_v1_prefix)
-
-# Local-storage uploads (see app/providers/storage).
-Path(settings.local_storage_root).mkdir(parents=True, exist_ok=True)
-
-
-class PublicFiles(StaticFiles):
-    """Serves uploads except private folders (e.g. lawyers' ID documents)."""
-
-    async def get_response(self, path: str, scope):  # type: ignore[override]
-        # Normalise ("./", "//", "a/../") and lower-case: the storage volume may be
-        # case-insensitive (macOS), so "LICENSES/" must not slip through.
-        normalized = posixpath.normpath("/" + path.replace("\\", "/")).lstrip("/").lower()
-        if normalized.split("/", 1)[0] in PRIVATE_FOLDERS:
-            return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": "Not Found"})
-        return await super().get_response(path, scope)
-
-
-app.mount(PUBLIC_PREFIX, PublicFiles(directory=settings.local_storage_root), name="files")

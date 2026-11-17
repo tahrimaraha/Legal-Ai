@@ -65,9 +65,6 @@ class Message(UUIDPkMixin, TimestampMixin, Base):
     )
     role: Mapped[MessageRole] = mapped_column(message_role_enum, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    # Bilingual renderings shown by the frontend; `content` keeps the text in `language`.
-    body_bn: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    body_en: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     language: Mapped[Language] = mapped_column(message_language_enum, nullable=False)
     token_usage: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     model_name: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
@@ -101,7 +98,6 @@ class MessageCitation(UUIDPkMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("chunks.id", ondelete="SET NULL"), nullable=True
     )
     quoted_span: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    quoted_span_en: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     relevance_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     display_label: Mapped[str] = mapped_column(String(500), nullable=False)
 

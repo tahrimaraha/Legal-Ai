@@ -1,41 +1,42 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Video, ArrowRight } from 'lucide-react';
-import { listThreads, createMeeting, ApiError } from '../../lib/api';
+import { listThreads, createMeeting } from '../../lib/api';
+import { useRole } from '../../context/RoleContext';
 import { Button } from '../../components/ui/Button';
 import { Select } from '../../components/ui/Input';
 import { Skeleton } from '../../components/ui/EmptyState';
 import type { Thread } from '../../mocks/types';
 
 export default function LawyerMeetingPage() {
+  const { user } = useRole();
   const navigate = useNavigate();
   const [threads, setThreads] = useState<Thread[]>([]);
-  // '' = instant meeting; invite a client from inside the meeting whenever you like.
   const [selectedThreadId, setSelectedThreadId] = useState('');
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
-  const [error, setError] = useState('');
 
   useEffect(() => {
-    listThreads()
-      .then((data) => setThreads(data.filter((t) => !t.isLocked)))
-      .catch(() => setThreads([]))
-      .finally(() => setLoading(false));
+    listThreads().then((data) => {
+      setThreads(data);
+      if (data.length > 0) setSelectedThreadId(data[0].id);
+      setLoading(false);
+    });
   }, []);
 
   const selectedThread = threads.find((t) => t.id === selectedThreadId);
 
   const handleStart = async () => {
+    // With a client thread the client is notified; otherwise it's an instant meeting the lawyer
+    // shares by link / code + password.
+    if (!user) return;
     setStarting(true);
-    setError('');
     try {
       const meeting = await createMeeting({
-        title: selectedThread ? selectedThread.contextTitleEn : 'Instant Legal Consultation',
+        title: selectedThread?.contextTitleEn || 'Instant meeting',
         threadId: selectedThread?.id,
       });
       navigate(`/lawyer/meeting/${meeting.code}`);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not start the meeting. Please try again.');
     } finally {
       setStarting(false);
     }
@@ -50,8 +51,7 @@ export default function LawyerMeetingPage() {
       <div>
         <h1 className="font-display text-2xl font-bold text-ink">Video Meetings</h1>
         <p className="mt-1 text-xs text-granite">
-          Start a secure video consultation any time. Invite your client by sending the invite to their messages, or
-          share the link — or the meeting code and password — directly.
+          Start a secure video consultation. Only you can start a meeting — clients join with the link, or the meeting code and password.
         </p>
       </div>
 
@@ -68,32 +68,21 @@ export default function LawyerMeetingPage() {
 
         {threads.length > 0 ? (
           <Select
-            label="Invite a client now (optional)"
+            label="Meeting For"
             value={selectedThreadId}
             onChange={(e) => setSelectedThreadId(e.target.value)}
             options={[
-              { value: '', label: "Don't invite yet — start an instant meeting" },
               ...threads.map((t) => ({ value: t.id, label: `${t.citizenName} — ${t.contextTitleEn}` })),
+              { value: '', label: 'Instant meeting (no client thread)' },
             ]}
           />
         ) : (
-          <p className="text-xs text-granite">
-            No open client conversations yet. Start an instant meeting and share the link, or the code and password,
-            with your client.
-          </p>
+          <p className="text-xs text-granite">No active client threads yet — you can still start an instant meeting.</p>
         )}
-
-        {selectedThread && (
-          <p className="text-[11px] text-ink-soft">
-            The link, meeting code and password will be sent to {selectedThread.citizenName} as a message.
-          </p>
-        )}
-
-        {error && <p className="text-xs text-brick">{error}</p>}
 
         <Button variant="primary" className="w-full justify-center" onClick={handleStart} loading={starting}>
           <Video className="mr-1.5 h-4 w-4" />
-          <span>{selectedThread ? 'Start Meeting & Send Invite' : 'Start Meeting'}</span>
+          <span>Start Meeting</span>
           <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
         </Button>
       </div>

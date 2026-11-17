@@ -1,5 +1,6 @@
 """Import every model module so Base.metadata is fully populated for Alembic and create_all."""
 from app.models.base import Base  # noqa: F401
+from app.models.app_record import AppRecord  # noqa: F401
 from app.models.chat import (  # noqa: F401
     Conversation,
     Message,
@@ -54,6 +55,7 @@ from app.models.verification import (  # noqa: F401
 from app.models.video import MeetingParticipant, VideoMeeting  # noqa: F401
 
 __all__ = [
+    "AppRecord",
     "Base",
     "User",
     "OtpCode",

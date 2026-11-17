@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Bell, CheckCircle2, Calendar, ShieldCheck, FileText, AlertTriangle, Mail } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
-import { listNotifications, markNotificationsAsRead } from '../../lib/api';
+import { listNotifications } from '../../lib/api';
 import { Button } from '../../components/ui/Button';
 import { Skeleton, EmptyState } from '../../components/ui/EmptyState';
 import type { AppNotification } from '../../mocks/types';
 
 export default function LawyerNotificationsPage() {
-  const { lang } = useLang();
+  const { lang, num } = useLang();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -28,16 +28,15 @@ export default function LawyerNotificationsPage() {
     setNotifications(prev => 
       prev.map(n => ({ ...n, isRead: true }))
     );
-    void markNotificationsAsRead();
   };
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
-      case 'verification_requested':
+      case 'verification':
         return <ShieldCheck className="h-5 w-5 text-clay-deep" />;
-      case 'consultation_scheduled':
+      case 'consultation':
         return <Calendar className="h-5 w-5 text-blue-600" />;
-      case 'new_message':
+      case 'message':
         return <Mail className="h-5 w-5 text-green-600" />;
       case 'document':
         return <FileText className="h-5 w-5 text-purple-600" />;
@@ -50,11 +49,11 @@ export default function LawyerNotificationsPage() {
 
   const getNotificationColor = (type: string) => {
     switch (type) {
-      case 'verification_requested':
+      case 'verification':
         return 'bg-clay-tint border-clay/30';
-      case 'consultation_scheduled':
+      case 'consultation':
         return 'bg-blue-50 border-blue-200';
-      case 'new_message':
+      case 'message':
         return 'bg-green-50 border-green-200';
       case 'document':
         return 'bg-purple-50 border-purple-200';
@@ -159,24 +158,24 @@ export default function LawyerNotificationsPage() {
                   </div>
 
                   {/* Action buttons for specific notification types */}
-                  {notification.type === 'verification_requested' && (
+                  {(notification.type as string) === 'verification' && (
                     <div className="mt-3 pt-3 border-t border-granite-soft">
                       <Button 
                         size="sm" 
                         variant="primary" 
-                        onClick={() => window.location.href = notification.link}
+                        onClick={() => window.location.href = '/lawyer/verifications'}
                       >
                         {lang === 'bn' ? 'যাচাই করুন' : 'Review Verification'}
                       </Button>
                     </div>
                   )}
 
-                  {notification.type === 'consultation_scheduled' && (
+                  {(notification.type as string) === 'consultation' && (
                     <div className="mt-3 pt-3 border-t border-granite-soft">
                       <Button 
                         size="sm" 
                         variant="primary" 
-                        onClick={() => window.location.href = notification.link}
+                        onClick={() => window.location.href = '/lawyer/consultations'}
                       >
                         {lang === 'bn' ? 'পরামর্শ দেখুন' : 'View Consultation'}
                       </Button>

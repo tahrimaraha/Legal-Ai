@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Clock, ArrowRight, UserCheck } from 'lucide-react';
+import { ShieldCheck, Clock, ArrowRight, UserCheck } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
 import { listVerifications } from '../../lib/api';
 import { StatusBadge } from '../../components/ui/StatusBadge';
@@ -8,7 +8,7 @@ import { Skeleton, EmptyState } from '../../components/ui/EmptyState';
 import type { VerificationRequest } from '../../mocks/types';
 
 export default function CitizenVerificationsPage() {
-  const { lang } = useLang();
+  const { lang, num } = useLang();
   const [requests, setRequests] = useState<VerificationRequest[]>([]);
   const [loading, setLoading] = useState(true);
 

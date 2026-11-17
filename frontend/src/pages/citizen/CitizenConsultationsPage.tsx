@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, UserCheck } from 'lucide-react';
+import { Calendar, Clock, ArrowRight, UserCheck, CheckCircle2 } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
 import { listConsultations } from '../../lib/api';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { Skeleton, EmptyState } from '../../components/ui/EmptyState';
 import type { ConsultationRequest } from '../../mocks/types';
+import { formatSlot, isPastSlot } from '../../lib/slots';
 
 export default function CitizenConsultationsPage() {
   const { lang, num } = useLang();
@@ -124,7 +125,9 @@ export default function CitizenConsultationsPage() {
 
               <div className="mt-4 pt-3 border-t border-granite-soft flex items-center justify-between text-xs">
                 <span className="font-mono text-[10px] text-granite">
-                  {c.scheduledSlot ? `${c.scheduledSlot.date} at ${c.scheduledSlot.time}` : 'Awaiting Schedule'}
+                  {c.scheduledSlot
+                    ? formatSlot(c.scheduledSlot, lang) + (isPastSlot(c.scheduledSlot) && c.status === 'scheduled' ? (lang === 'bn' ? ' (সময় পার হয়েছে)' : ' (time passed)') : '')
+                    : (lang === 'bn' ? 'সময় নির্ধারণের অপেক্ষায়' : 'Awaiting Schedule')}
                 </span>
                 <span className="text-clay-deep font-semibold flex items-center gap-1">
                   {lang === 'bn' ? 'টাইমলাইন ও বিবরণ' : 'View Timeline'} <ArrowRight className="h-3 w-3" />

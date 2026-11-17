@@ -73,7 +73,6 @@ const AdminOverview = lazy(() => import('./pages/admin/AdminOverview'));
 const AdminLawyerApprovals = lazy(() => import('./pages/admin/AdminLawyerApprovals'));
 const AdminVerificationQueue = lazy(() => import('./pages/admin/AdminVerificationQueue'));
 const AdminPaymentsDashboard = lazy(() => import('./pages/admin/AdminPaymentsDashboard'));
-const AdminSettingsPage = lazy(() => import('./pages/admin/AdminSettingsPage'));
 const AdminCorpusManager = lazy(() => import('./pages/admin/AdminCorpusManager'));
 const AdminUsersPage = lazy(() => import('./pages/admin/AdminUsersPage'));
 const AdminFlagsPage = lazy(() => import('./pages/admin/AdminFlagsPage'));
@@ -181,7 +180,6 @@ export default function App() {
           <Route path="users" element={<AdminUsersPage />} />
           <Route path="flags" element={<AdminFlagsPage />} />
           <Route path="message-reports" element={<AdminMessageReportsPage />} />
-          <Route path="settings" element={<AdminSettingsPage />} />
         </Route>
 
         {/* DEV / SHOWROOM */}

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, ArrowRight } from 'lucide-react';
+import { Search, BookOpen, MessageSquare, ArrowRight } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
 import { searchGlossary } from '../../lib/api';
 import { Skeleton } from '../../components/ui/EmptyState';

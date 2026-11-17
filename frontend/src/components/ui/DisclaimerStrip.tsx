@@ -12,7 +12,7 @@ export function DisclaimerStrip() {
     <div
       role="region"
       aria-label="Legal Disclaimer"
-      className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-between border-t border-granite bg-bone-deep/95 px-4 py-2 backdrop-blur font-body text-xs text-ink-soft sm:px-8"
+      className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-between border-t border-granite bg-bone-deep/95 px-4 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur font-body text-xs text-ink-soft sm:px-8"
     >
       <div className="flex items-center gap-2 max-w-4xl mx-auto text-center justify-center">
         <AlertCircle className="h-4 w-4 shrink-0 text-clay-deep" />

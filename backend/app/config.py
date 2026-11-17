@@ -24,6 +24,14 @@ class Settings(BaseSettings):
     database_pool_size: int = 10
     database_max_overflow: int = 20
 
+    # --- Video meetings (WebRTC) ---
+    # Comma-separated ICE server URLs. STUN is enough on most home/office networks; add a TURN server
+    # (e.g. coturn) for strict mobile/corporate NATs.
+    meeting_stun_urls: str = "stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302"
+    meeting_turn_urls: str = ""
+    meeting_turn_username: str = ""
+    meeting_turn_credential: str = ""
+
     # --- Redis ---
     redis_url: str = "redis://localhost:6379/0"
     redis_fallback_to_db: bool = False
@@ -51,6 +59,7 @@ class Settings(BaseSettings):
     retrieval_top_k: int = 8
     vector_backend: str = "pgvector"
     free_questions_per_day: int = 20
+    corpus_path: str = "data/legal_corpus.db"  # prebuilt by scripts/build_corpus.py
 
     # --- Payments ---
     payment_enabled_methods: str = "BKASH,NAGAD,SSLCOMMERZ,MOCK"
@@ -88,20 +97,12 @@ class Settings(BaseSettings):
     jitsi_app_id: str = ""
     jitsi_app_secret: str = ""
 
-    # --- Admins ---
-    # Comma-separated emails of the platform's admins. `python -m scripts.set_admins`
-    # makes exactly these accounts admins. Registration can never create an admin.
-    admin_emails: str = ""
-
-    @property
-    def admin_email_list(self) -> list[str]:
-        return [e.strip().lower() for e in self.admin_emails.split(",") if e.strip()]
-
-    # --- Manual wallet payments ---
-    # The platform's "Send Money" numbers shown to citizens. Leave one empty to hide that wallet.
-    manual_payment_bkash_number: str = ""
-    manual_payment_nagad_number: str = ""
-    manual_payment_rocket_number: str = ""
+    # --- Email verification, password reset & sessions ---
+    email_verification_ttl_hours: int = 24  # verification links expire after this
+    email_resend_cooldown_seconds: int = 60  # min gap between verification / reset emails to one address
+    password_reset_grant_minutes: int = 10  # how long a verified reset code lets you set a new password
+    refresh_cookie_secure: bool = False  # set true in production (HTTPS)
+    dev_mail_outbox: str = "var/mail-outbox"  # console provider writes each email here as .eml (dev only)
 
     # --- Email ---
     email_provider: str = "console"
@@ -110,6 +111,7 @@ class Settings(BaseSettings):
     smtp_user: str = ""
     smtp_password: str = ""
     smtp_from_email: str = "no-reply@legalai.local"
+    smtp_from_name: str = "LEGAL AI"
     smtp_use_tls: bool = True
 
     # --- SMS ---
@@ -130,6 +132,8 @@ class Settings(BaseSettings):
 
     # --- CORS ---
     cors_allowed_origins: str = "http://localhost:5173,http://localhost:3000"
+    # Phones / other PCs on the same Wi-Fi open the app at http://<LAN-IP>:5173 — allow private-network origins in dev.
+    cors_allow_lan_regex: str = r"^https?://(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$"
 
     # --- Uploads ---
     max_upload_size_mb: int = 10

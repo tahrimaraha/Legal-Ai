@@ -7,6 +7,7 @@ import {
   Briefcase,
   ArrowRight,
   Sparkles,
+  Clock,
   History,
   Send,
   Calendar,
@@ -16,6 +17,7 @@ import { useRole } from '../../context/RoleContext';
 import { listConversations, listVerifications, listConsultations } from '../../lib/api';
 import { Button } from '../../components/ui/Button';
 import type { Conversation, VerificationRequest, ConsultationRequest } from '../../mocks/types';
+import { formatSlot, isPastSlot, slotInstant } from '../../lib/slots';
 
 export default function CitizenDashboard() {
   const { lang, num } = useLang();
@@ -55,7 +57,13 @@ export default function CitizenDashboard() {
   ];
 
   const pendingVerificationsCount = verifications.filter((v) => v.status === 'pending' || v.status === 'claimed').length;
-  const activeConsultations = consultations.filter((c) => c.status === 'scheduled' || c.status === 'accepted');
+  // Upcoming = scheduled in the future (soonest first), then accepted ones still waiting for a time.
+  const activeConsultations = [
+    ...consultations
+      .filter((c) => c.status === 'scheduled' && c.scheduledSlot && !isPastSlot(c.scheduledSlot))
+      .sort((a, b) => slotInstant(a.scheduledSlot!) - slotInstant(b.scheduledSlot!)),
+    ...consultations.filter((c) => c.status === 'accepted' && !c.scheduledSlot),
+  ];
 
   return (
     <div className="space-y-8 font-body">
@@ -98,7 +106,10 @@ export default function CitizenDashboard() {
                 {lang === 'bn' ? activeConsultations[0].topicBn : activeConsultations[0].topicEn}
               </p>
               <p className="text-[11px] text-ink-soft">
-                {activeConsultations[0].lawyerName} · {activeConsultations[0].scheduledSlot?.date} {activeConsultations[0].scheduledSlot?.time}
+                {activeConsultations[0].lawyerName} ·{' '}
+                {activeConsultations[0].scheduledSlot
+                  ? formatSlot(activeConsultations[0].scheduledSlot, lang)
+                  : lang === 'bn' ? 'সময় নির্ধারণের অপেক্ষায়' : 'Time to be confirmed'}
               </p>
             </div>
           </div>

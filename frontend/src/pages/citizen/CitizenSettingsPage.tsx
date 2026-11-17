@@ -5,31 +5,95 @@ import { useRole } from '../../context/RoleContext';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
-import { ChangePasswordForm } from '../../components/auth/ChangePasswordForm';
+import { ApiError, changePassword, deleteMyAccount, exportMyData, updateMyAccount } from '../../lib/api';
 
 export default function CitizenSettingsPage() {
   const { lang, setLang } = useLang();
-  const { user } = useRole();
+  const { user, token, login, logout } = useRole();
 
   const [tab, setTab] = useState<'profile' | 'language' | 'notifications' | 'security' | 'danger'>('profile');
-  const [name, setName] = useState(user?.name || 'Mayesha');
-  const [phone, setPhone] = useState(user?.phone || '+880 1711-223344');
-  const [district, setDistrict] = useState(user?.district || 'Dhaka');
+  const [name, setName] = useState(user?.name || '');
+  const [phone, setPhone] = useState(user?.phone || '');
+  const [district, setDistrict] = useState(user?.district || '');
   const [savedToast, setSavedToast] = useState(false);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   // Notification toggles
   const [emailNotifs, setEmailNotifs] = useState(true);
+  const [smsNotifs, setSmsNotifs] = useState(false);
   const [verifAlerts, setVerifAlerts] = useState(true);
 
   // Delete modal state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [confirmText, setConfirmText] = useState('');
 
-  const handleSave = (e: React.FormEvent) => {
-    e.preventDefault();
+  const showSaved = () => {
     setSavedToast(true);
     setTimeout(() => setSavedToast(false), 2000);
   };
+
+  const run = async (action: () => Promise<void>) => {
+    setBusy(true);
+    setError('');
+    try {
+      await action();
+    } catch (err) {
+      setError(err instanceof ApiError ? (lang === 'bn' ? err.messageBn : err.message) : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    void run(async () => {
+      const updated = await updateMyAccount({ name, phone, district });
+      if (token) login(updated, token);
+      showSaved();
+    });
+  };
+
+  const handlePasswordChange = () => {
+    if (newPassword.length < 8) {
+      setError(lang === 'bn' ? 'নতুন পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে' : 'New password must be at least 8 characters');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError(lang === 'bn' ? 'নতুন পাসওয়ার্ড দুটি মেলেনি' : 'The new passwords do not match');
+      return;
+    }
+    void run(async () => {
+      await changePassword(currentPassword, newPassword);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      showSaved();
+    });
+  };
+
+  const handleExport = () =>
+    void run(async () => {
+      const data = await exportMyData();
+      const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `legal-ai-data-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    });
+
+  const handleDelete = () =>
+    void run(async () => {
+      await deleteMyAccount();
+      logout();
+      window.location.assign('/');
+    });
 
   const tabs = [
     { id: 'profile', labelBn: 'প্রোফাইল', labelEn: 'Profile', icon: User },
@@ -49,6 +113,8 @@ export default function CitizenSettingsPage() {
           {lang === 'bn' ? 'ব্যক্তিগত তথ্য, ভাষা ও নিরাপত্তা কনফিগারেশন' : 'Manage your citizen profile preferences and data controls'}
         </p>
       </div>
+
+      {error && <div className="p-2.5 rounded bg-brick/10 border border-brick/30 text-xs text-brick font-medium">{error}</div>}
 
       {savedToast && (
         <div className="p-3 rounded bg-clay-tint border border-clay text-xs text-clay-deep font-semibold flex items-center gap-2">
@@ -95,7 +161,7 @@ export default function CitizenSettingsPage() {
           <Input
             type="email"
             label={lang === 'bn' ? 'ইমেইল ঠিকানা' : 'Email Address'}
-            value={user?.email || 'citizen@example.com'}
+            value={user?.email || ''}
             disabled
             hint="Email cannot be changed directly."
           />
@@ -116,14 +182,15 @@ export default function CitizenSettingsPage() {
               onChange={(e) => setDistrict(e.target.value)}
               className="w-full rounded border border-granite bg-white px-3 py-2 text-sm text-ink focus:border-clay focus:outline-none"
             >
-              {['Dhaka', 'Chattogram', 'Sylhet', 'Rajshahi', 'Khulna', 'Barishal'].map((d) => (
+              <option value="">{lang === 'bn' ? 'নির্বাচন করুন' : 'Select district'}</option>
+              {['Dhaka', 'Chattogram', 'Sylhet', 'Rajshahi', 'Khulna', 'Barishal', 'Rangpur', 'Mymensingh'].map((d) => (
                 <option key={d} value={d}>{d}</option>
               ))}
             </select>
           </div>
 
           <div className="pt-3">
-            <Button size="sm" variant="primary" type="submit">
+            <Button size="sm" variant="primary" type="submit" loading={busy}>
               {lang === 'bn' ? 'পরিবর্তন সংরক্ষণ করুন' : 'Save Changes'}
             </Button>
           </div>
@@ -208,7 +275,15 @@ export default function CitizenSettingsPage() {
             {lang === 'bn' ? 'পাসওয়ার্ড পরিবর্তন' : 'Change Password'}
           </h3>
 
-          <ChangePasswordForm />
+          <Input type="password" label="Current Password" placeholder="••••••••" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />
+          <Input type="password" label="New Password" placeholder="••••••••" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+          <Input type="password" label="Confirm New Password" placeholder="••••••••" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+
+          <div className="pt-2">
+            <Button size="sm" variant="primary" onClick={handlePasswordChange} loading={busy}>
+              Update Password
+            </Button>
+          </div>
         </div>
       )}
 
@@ -232,7 +307,7 @@ export default function CitizenSettingsPage() {
               <span className="font-bold text-ink">Export My Data (GDPR / Privacy)</span>
               <p className="text-[11px] text-granite">Download JSON archive of all chats, drafts, and verifications.</p>
             </div>
-            <Button size="sm" variant="secondary" onClick={() => alert('Data archive export generated.')}>
+            <Button size="sm" variant="secondary" onClick={handleExport} loading={busy}>
               <Download className="mr-1 h-3.5 w-3.5" />
               <span>Export</span>
             </Button>
@@ -267,6 +342,7 @@ export default function CitizenSettingsPage() {
             value={confirmText}
             onChange={(e) => setConfirmText(e.target.value)}
           />
+          {error && <div className="p-2 rounded bg-brick/10 border border-brick/30 text-xs text-brick">{error}</div>}
           <div className="flex justify-end gap-2 pt-2">
             <Button size="sm" variant="ghost" onClick={() => setDeleteModalOpen(false)}>
               Cancel
@@ -275,11 +351,9 @@ export default function CitizenSettingsPage() {
               size="sm"
               variant="primary"
               disabled={confirmText !== 'DELETE'}
+              loading={busy}
               className="bg-brick hover:bg-brick/90"
-              onClick={() => {
-                alert('Account deleted.');
-                window.location.assign('/');
-              }}
+              onClick={handleDelete}
             >
               Permanently Delete
             </Button>

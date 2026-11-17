@@ -8,30 +8,20 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.api.v1 import (
-    admin,
-    auth,
-    chat,
-    consultations,
-    content,
-    documents,
-    lawyers,
-    messaging,
-    notifications,
-    payments,
-    verifications,
-)
+from app.api.v1 import admin, auth, chat, consultations, conversations, lawyers, meeting_signal, messaging, user_data, verifications
 
 api_router = APIRouter()
 
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
-api_router.include_router(content.router, tags=["statutes"])
-api_router.include_router(chat.router, tags=["chat"])
-api_router.include_router(lawyers.router, prefix="/lawyers", tags=["lawyers"])
-api_router.include_router(verifications.router, prefix="/verifications", tags=["verifications"])
-api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
-api_router.include_router(consultations.router, prefix="/consultations", tags=["consultations"])
+
+api_router.include_router(chat.router, tags=["ai"])
+api_router.include_router(conversations.router, tags=["conversations"])
+api_router.include_router(lawyers.router, tags=["lawyers"])
+api_router.include_router(verifications.router, tags=["verifications"])
+api_router.include_router(consultations.router, tags=["consultations"])
+api_router.include_router(meeting_signal.router, tags=["meetings"])
 api_router.include_router(messaging.router, tags=["messaging"])
-api_router.include_router(documents.router, tags=["documents"])
-api_router.include_router(payments.router, prefix="/payments", tags=["payments"])
-api_router.include_router(admin.router, prefix="/admin", tags=["admin"])
+api_router.include_router(user_data.router, tags=["documents", "notifications"])
+api_router.include_router(admin.router, tags=["admin"])
+
+# Further routers are registered here as they are implemented.

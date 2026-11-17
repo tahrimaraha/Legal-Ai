@@ -1,75 +1,33 @@
-import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Video, Link2, KeyRound, AlertCircle } from 'lucide-react';
 import { joinMeetingWithPassword } from '../../lib/api';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 
-/** Accepts an invite link (`/app/meeting/join?code=…&pwd=…`), a plain meeting link, or a bare code. */
-function parseMeetingLink(value: string): { code: string; password: string } {
+function extractCodeFromLink(value: string): string {
   const trimmed = value.trim();
-  try {
-    const url = new URL(trimmed);
-    const code = url.searchParams.get('code');
-    if (code) return { code, password: url.searchParams.get('pwd') ?? '' };
-  } catch {
-    /* not a full URL */
-  }
   const match = trimmed.match(/\/app\/meeting\/([a-z0-9-]+)/i);
-  return { code: match && match[1] !== 'join' ? match[1] : trimmed, password: '' };
+  if (match) return match[1];
+  return trimmed;
 }
 
 export default function CitizenJoinMeetingPage() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const linkCode = searchParams.get('code') ?? '';
-  const linkPassword = searchParams.get('pwd') ?? '';
-  const [tab, setTab] = useState<'link' | 'code'>(linkCode ? 'code' : 'link');
+  const [tab, setTab] = useState<'link' | 'code'>('link');
   const [linkInput, setLinkInput] = useState('');
-  const [codeInput, setCodeInput] = useState(linkCode);
-  const [passwordInput, setPasswordInput] = useState(linkPassword);
+  const [codeInput, setCodeInput] = useState('');
+  const [passwordInput, setPasswordInput] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const autoJoined = useRef(false);
-
-  const join = async (code: string, password: string) => {
-    setError('');
-    setLoading(true);
-    try {
-      const res = await joinMeetingWithPassword(code, password);
-      if (!res.ok) {
-        setError(res.error || 'Could not join this meeting.');
-        return;
-      }
-      navigate(`/app/meeting/${res.meeting!.code}`, { replace: true });
-    } catch {
-      setError('Could not join this meeting. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Invite links carry the code and password: join in one click.
-  useEffect(() => {
-    if (autoJoined.current || !linkCode || !linkPassword) return;
-    autoJoined.current = true;
-    void join(linkCode, linkPassword);
-  }, [linkCode, linkPassword]);
 
   const handleJoinByLink = () => {
-    const { code, password } = parseMeetingLink(linkInput);
+    const code = extractCodeFromLink(linkInput);
     if (!code) {
       setError('Please paste a valid meeting link.');
       return;
     }
-    if (password) {
-      void join(code, password);
-      return;
-    }
-    // A link without a password: ask for it on the code tab.
-    setCodeInput(code);
-    setTab('code');
-    setError('This link has no password — enter the password your advocate sent you.');
+    navigate(`/app/meeting/${code}`);
   };
 
   const handleJoinByCode = async () => {
@@ -77,7 +35,18 @@ export default function CitizenJoinMeetingPage() {
       setError('Enter both the meeting code and password.');
       return;
     }
-    await join(codeInput, passwordInput);
+    setError('');
+    setLoading(true);
+    try {
+      const res = await joinMeetingWithPassword(codeInput, passwordInput);
+      if (!res.ok) {
+        setError(res.error || 'Could not join this meeting.');
+        return;
+      }
+      navigate(`/app/meeting/${res.meeting!.code}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -118,7 +87,7 @@ export default function CitizenJoinMeetingPage() {
               value={linkInput}
               onChange={(e) => setLinkInput(e.target.value)}
             />
-            <Button variant="primary" className="w-full justify-center" onClick={handleJoinByLink} loading={loading}>
+            <Button variant="primary" className="w-full justify-center" onClick={handleJoinByLink}>
               Join with Link
             </Button>
           </div>

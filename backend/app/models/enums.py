@@ -110,7 +110,6 @@ class VerificationStatus(str, enum.Enum):
 class VerdictEnum(str, enum.Enum):
     ACCURATE = "ACCURATE"
     PARTIALLY_ACCURATE = "PARTIALLY_ACCURATE"
-    NEEDS_CORRECTION = "NEEDS_CORRECTION"
     INACCURATE = "INACCURATE"
 
 
@@ -177,7 +176,6 @@ class PaymentPurpose(str, enum.Enum):
 class PaymentMethod(str, enum.Enum):
     BKASH = "BKASH"
     NAGAD = "NAGAD"
-    ROCKET = "ROCKET"
     SSLCOMMERZ = "SSLCOMMERZ"
     MOCK = "MOCK"
 

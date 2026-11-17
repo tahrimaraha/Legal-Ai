@@ -1,4 +1,4 @@
-import { BookOpen, ShieldCheck } from 'lucide-react';
+import { Scale, Users, BookOpen, ShieldCheck, HeartHandshake } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
 
 export default function AboutPage() {

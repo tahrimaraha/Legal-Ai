@@ -7,14 +7,19 @@ import {
   DollarSign,
   Clock,
   ArrowRight,
+  UserCheck,
+  AlertTriangle,
+  Award,
 } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
 import { useRole } from '../../context/RoleContext';
-import { listVerifications, listConsultations } from '../../lib/api';
+import { listVerifications, listConsultations, getLawyerById, listThreads } from '../../lib/api';
 import { StatCard } from '../../components/ui/StatCard';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { Button } from '../../components/ui/Button';
-import type { VerificationRequest, ConsultationRequest } from '../../mocks/types';
+import type { VerificationRequest, ConsultationRequest, LawyerProfile } from '../../mocks/types';
+import { formatSlot } from '../../lib/slots';
+import { inBucket } from '../../lib/consultationBuckets';
 
 export default function LawyerDashboard() {
   const { lang, num } = useLang();
@@ -22,13 +27,39 @@ export default function LawyerDashboard() {
 
   const [verifications, setVerifications] = useState<VerificationRequest[]>([]);
   const [consultations, setConsultations] = useState<ConsultationRequest[]>([]);
+  const [profile, setProfile] = useState<LawyerProfile | null>(null);
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  const [activeThreads, setActiveThreads] = useState(0);
+  const [firstUnreadThread, setFirstUnreadThread] = useState<string | null>(null);
 
   useEffect(() => {
     listVerifications('lawyer').then(setVerifications);
     listConsultations().then(setConsultations);
+    listThreads().then((threads) => {
+      setUnreadMessages(threads.reduce((sum, t) => sum + t.unreadCount, 0));
+      setActiveThreads(threads.filter((t) => !t.isLocked).length);
+      setFirstUnreadThread(threads.find((t) => t.unreadCount > 0)?.id ?? null);
+    });
+    if (user) {
+      getLawyerById(user.id).then((me) => {
+        if (me) setProfile(me);
+      });
+    }
   }, [user]);
 
   const isPending = user?.isVerified === false;
+
+  // Earnings this calendar month: completed consultations (full fee) + completed verifications (lawyer share).
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
+  const completedThisMonth = (iso?: string) => !!iso && new Date(iso).getTime() >= monthStart;
+  const monthConsultations = consultations.filter(
+    (c) => c.status === 'completed' && completedThisMonth(c.timeline.find((t) => t.status === 'completed')?.timestamp),
+  );
+  const monthVerifications = verifications.filter((v) => v.status === 'completed' && completedThisMonth(v.verdict?.createdAt));
+  const monthEarnings =
+    monthConsultations.reduce((sum, c) => sum + c.feeBdt, 0) +
+    monthVerifications.reduce((sum, v) => sum + (v.urgency === 'urgent' ? 150 : 100), 0);
+  const monthSessions = monthConsultations.length + monthVerifications.length;
 
   if (isPending) {
     return (
@@ -53,8 +84,15 @@ export default function LawyerDashboard() {
     );
   }
 
-  const openQueue = verifications.filter((v) => v.status === 'pending');
-  const upcomingConsultations = consultations.filter((c) => c.status === 'scheduled' || c.status === 'accepted');
+  // Lawyers only see requests an admin assigned to them; "open" = assigned and awaiting their verdict.
+  const openQueue = verifications.filter((v) => v.status === 'claimed');
+  const newRequests = inBucket(consultations, 'requests');
+  const allUpcoming = inBucket(consultations, 'upcoming');
+  const needsTime = inBucket(consultations, 'reschedule');
+  const upcomingConsultations = allUpcoming.slice(0, 5);
+  const pendingTotal = newRequests.length + allUpcoming.length + needsTime.length;
+  const consultationsLink =
+    newRequests.length > 0 ? 'requests' : needsTime.length > 0 ? 'reschedule' : allUpcoming.length > 0 ? 'upcoming' : null;
 
   return (
     <div className="space-y-8 font-body">
@@ -82,27 +120,34 @@ export default function LawyerDashboard() {
         <StatCard
           label={lang === 'bn' ? 'উন্মুক্ত যাচাই কিউ' : 'Open Verifications'}
           value={num(openQueue.length)}
-          sub={lang === 'bn' ? 'পর্যালোচনার জন্য প্রস্তুত' : 'Ready for statutory review'}
+          sub={lang === 'bn' ? 'আপনাকে দেওয়া, মতামতের অপেক্ষায়' : 'Assigned to you, awaiting verdict'}
           icon={ShieldCheck}
+          to="/lawyer/verifications?status=in_progress"
         />
         <StatCard
           label={lang === 'bn' ? 'পরামর্শ অনুরোধ' : 'Pending Consultations'}
-          value={num(upcomingConsultations.length)}
-          sub={lang === 'bn' ? 'আসন্ন শিডিউল' : 'Upcoming client sessions'}
+          value={num(pendingTotal)}
+          sub={
+            lang === 'bn'
+              ? `${num(newRequests.length)} নতুন · ${num(allUpcoming.length)} আসন্ন${needsTime.length ? ` · ${num(needsTime.length)} সময় দিন` : ''}`
+              : `${newRequests.length} new · ${allUpcoming.length} upcoming${needsTime.length ? ` · ${needsTime.length} need a time` : ''}`
+          }
           icon={Calendar}
+          to={consultationsLink ? `/lawyer/consultations?status=${consultationsLink}` : '/lawyer/consultations'}
         />
         <StatCard
           label={lang === 'bn' ? 'ক্লায়েন্ট মেসেজ' : 'Unread Messages'}
-          value={num(2)}
-          sub={lang === 'bn' ? 'সক্রিয় থ্রেড' : 'Active client threads'}
+          value={num(unreadMessages)}
+          sub={lang === 'bn' ? `${num(activeThreads)}টি সক্রিয় থ্রেড` : `${activeThreads} active client threads`}
           icon={Mail}
+          to={firstUnreadThread ? `/lawyer/messages/${firstUnreadThread}` : '/lawyer/messages'}
         />
         <StatCard
           label={lang === 'bn' ? 'চলতি মাসের আয়' : 'Monthly Honorarium'}
-          value={`৳${num(24500)}`}
-          sub={lang === 'bn' ? 'মোট ১৭টি সম্পন্ন পরামর্শ' : '17 completed sessions'}
-          trend="+18%"
+          value={`৳${num(monthEarnings)}`}
+          sub={lang === 'bn' ? `এই মাসে ${num(monthSessions)}টি সম্পন্ন কাজ` : `${monthSessions} completed this month`}
           icon={DollarSign}
+          to="/lawyer/consultations?status=completed"
         />
       </div>
 
@@ -154,7 +199,7 @@ export default function LawyerDashboard() {
           <div className="rounded border border-granite bg-white p-5 shadow-sm space-y-4">
             <h3 className="font-mono text-label uppercase text-clay-deep font-semibold flex items-center gap-1.5">
               <Calendar className="h-4 w-4" />
-              <span>{lang === 'bn' ? 'আজকের সময়সূচি' : 'Today’s Consultation Schedule'}</span>
+              <span>{lang === 'bn' ? 'আসন্ন পরামর্শ' : 'Upcoming Consultations'}</span>
             </h3>
 
             {upcomingConsultations.length > 0 ? (
@@ -163,7 +208,7 @@ export default function LawyerDashboard() {
                   <div key={c.id} className="p-3 rounded bg-bone border border-granite-soft text-xs space-y-1">
                     <div className="flex justify-between font-mono font-bold text-clay-deep text-[11px]">
                       <span>{c.mode.toUpperCase()}</span>
-                      <span>{c.scheduledSlot ? `${c.scheduledSlot.time}` : '16:00'}</span>
+                      <span>{formatSlot(c.scheduledSlot!, lang)}</span>
                     </div>
                     <p className="font-bold text-ink truncate">{c.topicBn}</p>
                     <p className="text-[11px] text-granite">Client: {c.citizenName}</p>

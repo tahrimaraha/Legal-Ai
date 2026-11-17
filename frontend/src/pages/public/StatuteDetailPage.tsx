@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Calendar, ArrowLeft, MessageSquare, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
+import { BookOpen, Calendar, ArrowLeft, MessageSquare, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
 import { getStatuteBySlug } from '../../lib/api';
 import { StatusBadge } from '../../components/ui/StatusBadge';
@@ -10,7 +10,7 @@ import type { Statute } from '../../mocks/types';
 
 export default function StatuteDetailPage() {
   const { slug } = useParams<{ slug: string }>();
-  const { lang } = useLang();
+  const { lang, num } = useLang();
   const [statute, setStatute] = useState<Statute | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});

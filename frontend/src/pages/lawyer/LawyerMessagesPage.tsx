@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Send, Video, ArrowRight, Flag } from 'lucide-react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useThreadSync } from '../../lib/useThreadSync';
+import { Send, UserCheck, Paperclip, AlertCircle, Video, ArrowRight, Flag } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
 import { useRole } from '../../context/RoleContext';
 import { listThreads, sendThreadMessage, createMeeting, reportThreadMessage } from '../../lib/api';
 import { Button } from '../../components/ui/Button';
-import { MessageText } from '../../components/messaging/MessageText';
 import { Modal } from '../../components/ui/Modal';
 import { Select, Textarea } from '../../components/ui/Input';
 import { Skeleton, EmptyState } from '../../components/ui/EmptyState';
@@ -23,6 +23,7 @@ export default function LawyerMessagesPage() {
   const { lang } = useLang();
   const { user } = useRole();
   const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
   const [threads, setThreads] = useState<Thread[]>([]);
   const [activeThread, setActiveThread] = useState<Thread | null>(null);
   const [loading, setLoading] = useState(true);
@@ -42,10 +43,13 @@ export default function LawyerMessagesPage() {
   useEffect(() => {
     listThreads().then((data) => {
       setThreads(data);
-      if (data.length > 0) setActiveThread(data[0]);
+      const wanted = id ? data.find((t) => t.id === id) : undefined;
+      if (wanted || data.length > 0) setActiveThread(wanted || data[0]);
       setLoading(false);
     });
-  }, []);
+  }, [id]);
+
+  useThreadSync(activeThread?.id, setActiveThread, setThreads);
 
   const handleSelectThread = (t: Thread) => {
     setActiveThread(t);
@@ -218,7 +222,7 @@ export default function LawyerMessagesPage() {
                               : 'bg-white text-ink-soft border border-granite-soft shadow-sm'
                           }`}
                         >
-                          <MessageText text={m.text} />
+                          <p>{m.text}</p>
                           <span className={`block font-mono text-[9px] text-right mt-1 ${isLawyer ? 'text-clay-tint' : 'text-granite'}`}>
                             {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>

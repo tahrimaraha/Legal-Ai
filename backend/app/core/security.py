@@ -1,6 +1,7 @@
 """Password hashing, JWT issuance/verification, and auth dependencies."""
 from __future__ import annotations
 
+import hashlib
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -13,16 +14,22 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.core.exceptions import ForbiddenError, UnauthorizedError
+from app.core.exceptions import EmailNotVerifiedError, ForbiddenError, UnauthorizedError, ValidationAppError
 from app.database import get_db
-from app.models.enums import LawyerApprovalStatus, UserRole
-from app.models.profile import LawyerProfile
+from app.models.enums import UserRole
 from app.models.user import User
 
 pwd_context = CryptContext(schemes=["bcrypt"], bcrypt__rounds=settings.bcrypt_rounds)
 _bearer_scheme = HTTPBearer(auto_error=False)
 
 TOKEN_TYPE = "access"
+
+# An admin suspension is stored as a lock that never expires (see /admin/users/{id}/suspend).
+SUSPENDED_UNTIL = datetime(9999, 12, 31, tzinfo=timezone.utc)
+
+
+def is_suspended(user: User) -> bool:
+    return user.locked_until is not None and user.locked_until.year >= 9000
 
 
 def hash_password(password: str) -> str:
@@ -44,6 +51,44 @@ def verify_otp(code: str, code_hash: str) -> bool:
 def generate_otp(length: int | None = None) -> str:
     digits = length or settings.otp_length
     return "".join(str(secrets.randbelow(10)) for _ in range(digits))
+
+
+def new_secret_token() -> tuple[str, str]:
+    """A high-entropy single-use token for links / sessions: (raw value for the user, hash to store)."""
+    raw = secrets.token_urlsafe(32)
+    return raw, hash_secret_token(raw)
+
+
+def hash_secret_token(raw: str) -> str:
+    # SHA-256 is right for 256-bit random tokens (unlike passwords/OTPs they can't be brute-forced),
+    # and it lets us look the token up by its hash.
+    return "sha256$" + hashlib.sha256(raw.encode()).hexdigest()
+
+
+def check_password_policy(password: str, email: str | None = None) -> None:
+    """Server-side password rules (the website shows the same checklist)."""
+    problems_en, problems_bn = [], []
+    if len(password) < 8:
+        problems_en.append("at least 8 characters")
+        problems_bn.append("কমপক্ষে ৮ অক্ষর")
+    if len(password) > 128:
+        problems_en.append("at most 128 characters")
+        problems_bn.append("সর্বোচ্চ ১২৮ অক্ষর")
+    if not any(c.isalpha() for c in password):
+        problems_en.append("a letter")
+        problems_bn.append("একটি অক্ষর")
+    if not any(c.isdigit() for c in password):
+        problems_en.append("a number")
+        problems_bn.append("একটি সংখ্যা")
+    if email and password.strip().lower() == email.strip().lower():
+        problems_en.append("something other than your email")
+        problems_bn.append("ইমেইল থেকে আলাদা কিছু")
+    if problems_en:
+        raise ValidationAppError(
+            "Password must contain " + ", ".join(problems_en) + ".",
+            "পাসওয়ার্ডে থাকতে হবে: " + ", ".join(problems_bn) + "।",
+            code="WEAK_PASSWORD",
+        )
 
 
 def create_access_token(user_id: uuid.UUID, role: UserRole) -> str:
@@ -103,6 +148,18 @@ async def get_current_user(
             message_bn="এই অ্যাকাউন্টটি আর বিদ্যমান নেই।",
             code="USER_NOT_FOUND",
         )
+    if is_suspended(user):
+        raise UnauthorizedError(
+            message_en="This account has been suspended.",
+            message_bn="এই অ্যাকাউন্টটি স্থগিত করা হয়েছে।",
+            code="ACCOUNT_SUSPENDED",
+        )
+    # Defence in depth: tokens are only issued after verification, but never trust that alone.
+    if user.email_verified_at is None:
+        raise EmailNotVerifiedError(
+            "Please verify your email address to continue.",
+            "চালিয়ে যেতে আপনার ইমেইল ঠিকানা যাচাই করুন।",
+        )
     return user
 
 
@@ -113,21 +170,3 @@ def require_roles(*roles: UserRole):
         return current_user
 
     return _dependency
-
-
-async def require_approved_lawyer(
-    current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db),
-) -> User:
-    """Lawyer-only endpoints stay closed until an admin approves the lawyer's credentials."""
-    if current_user.role != UserRole.LAWYER:
-        raise ForbiddenError()
-    status = await db.scalar(
-        select(LawyerProfile.approval_status).where(LawyerProfile.user_id == current_user.id)
-    )
-    if status != LawyerApprovalStatus.APPROVED:
-        raise ForbiddenError(
-            message_en="Your lawyer account is awaiting admin approval.",
-            message_bn="আপনার আইনজীবী অ্যাকাউন্টটি অ্যাডমিন অনুমোদনের অপেক্ষায় আছে।",
-            code="LAWYER_NOT_APPROVED",
-        )
-    return current_user

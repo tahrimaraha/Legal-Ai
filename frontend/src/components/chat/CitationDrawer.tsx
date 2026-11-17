@@ -75,7 +75,7 @@ export function CitationDrawer({ citation, onClose, onAsk }: Props) {
                 </h2>
                 {statute && (
                   <p className="mt-2 font-mono text-[0.6875rem] tracking-label text-clay-deep">
-                    {statute.year} · {num(statute.chunks)} chunks · match {num(Math.round(citation.score * 100))}%
+                    {statute.year} · {num(statute.chunks ?? 0)} chunks · match {num(Math.round(citation.score * 100))}%
                   </p>
                 )}
               </div>

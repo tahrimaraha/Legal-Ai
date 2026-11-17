@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, ShieldCheck, Database, HelpCircle } from 'lucide-react';
+import { Users, ShieldCheck, Database, HelpCircle, Activity, ArrowRight, AlertTriangle } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
 import { getAdminStats } from '../../lib/api';
 import { StatCard } from '../../components/ui/StatCard';
@@ -22,7 +22,8 @@ export default function AdminOverview() {
     return <div className="space-y-6"><Skeleton className="h-10 w-48" /><Skeleton className="h-96 w-full" /></div>;
   }
 
-  const maxWeekly = Math.max(...stats.weeklyQuestions.map((w) => w.count));
+  const maxWeekly = Math.max(1, ...stats.weeklyQuestions.map((w) => w.count));
+  const totalCategory = stats.categoryBreakdown.reduce((acc, c) => acc + c.count, 0);
 
   return (
     <div className="space-y-8 font-body">
@@ -44,13 +45,14 @@ export default function AdminOverview() {
           value={num(stats.totalCitizens)}
           sub="Active legal search users"
           icon={Users}
+          to="/admin/users?role=citizen"
         />
         <StatCard
           label="Verified Advocates"
           value={num(stats.totalLawyers)}
           sub={`${num(stats.pendingLawyers)} awaiting Bar audit`}
-          trend={stats.pendingLawyers ? `+${num(stats.pendingLawyers)} Pending` : undefined}
           icon={ShieldCheck}
+          to="/admin/lawyers"
         />
         <StatCard
           label="Questions Asked (This Week)"
@@ -63,6 +65,7 @@ export default function AdminOverview() {
           value={`${stats.corpusHealthPct}%`}
           sub={`${num(stats.indexedStatutesCount)} Codified Acts live`}
           icon={Database}
+          to="/admin/corpus"
         />
       </div>
 
@@ -104,8 +107,7 @@ export default function AdminOverview() {
 
           <div className="space-y-3 pt-1">
             {stats.categoryBreakdown.map((cat) => {
-              const totalCategory = stats.categoryBreakdown.reduce((acc, c) => acc + c.count, 0);
-              const pct = Math.round((cat.count / totalCategory) * 100);
+              const pct = totalCategory > 0 ? Math.round((cat.count / totalCategory) * 100) : 0;
               return (
                 <div key={cat.category} className="space-y-1 text-xs">
                   <div className="flex justify-between font-medium">

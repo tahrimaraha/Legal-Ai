@@ -1,8 +1,8 @@
 import type { Statute } from './types';
 
-type StatuteSummary = Pick<Statute, 'id' | 'titleBn' | 'titleEn' | 'year'> & { chunks: number };
+type DrawerStatute = Pick<Statute, 'id' | 'titleBn' | 'titleEn' | 'year' | 'chunks'>;
 
-export const statutes: StatuteSummary[] = [
+export const statutes: DrawerStatute[] = [
   { id: 'constitution', titleBn: 'বাংলাদেশের সংবিধান', titleEn: 'Constitution of Bangladesh', year: '1972', chunks: 412 },
   { id: 'penal', titleBn: 'দণ্ডবিধি', titleEn: 'Penal Code', year: '1860', chunks: 968 },
   { id: 'mfla', titleBn: 'মুসলিম পারিবারিক আইন অধ্যাদেশ', titleEn: 'Muslim Family Laws Ordinance', year: '1961', chunks: 74 },

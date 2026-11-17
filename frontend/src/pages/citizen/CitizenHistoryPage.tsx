@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Trash2, ArrowRight, Calendar } from 'lucide-react';
+import { Search, Trash2, MessageSquare, ArrowRight, Calendar } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
 import { listConversations, deleteConversation } from '../../lib/api';
+import { Button } from '../../components/ui/Button';
 import { Skeleton, EmptyState } from '../../components/ui/EmptyState';
 import type { Conversation } from '../../mocks/types';
 

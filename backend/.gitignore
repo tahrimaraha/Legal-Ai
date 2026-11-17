@@ -10,3 +10,4 @@ storage/
 .mypy_cache/
 htmlcov/
 .coverage
+var/

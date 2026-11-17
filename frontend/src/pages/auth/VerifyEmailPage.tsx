@@ -1,210 +1,247 @@
-import { useEffect, useState } from 'react';
-import { useNavigate, useLocation, useSearchParams, Link } from 'react-router-dom';
-import { Mail, CheckCircle2, ArrowRight, AlertCircle, RotateCw } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { AlertCircle, ArrowLeft, ArrowRight, CheckCircle2, Loader2, Mail, RotateCcw } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
-import { useRole } from '../../context/RoleContext';
-import { ApiError, confirmEmailVerification, resendVerificationCode } from '../../lib/api';
+import { ApiError, confirmEmailVerification, resendVerificationEmail } from '../../lib/api';
+import { useCooldown } from '../../lib/useCooldown';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
-import type { User } from '../../mocks/types';
+import { ScalesDivider } from '../../components/ui/ScalesDivider';
 
-/** Optional extras passed via router state; the page works without them (e.g. after a refresh). */
-interface VerifyEmailState {
-  devCode?: string | null;
-}
+type LinkState = 'checking' | 'verified' | 'already' | 'error';
 
-const RESEND_COOLDOWN_SECONDS = 30;
-
-function homeFor(user: User): string {
-  if (user.role === 'lawyer') return '/signup/lawyer/pending';
-  if (user.role === 'admin') return '/admin';
-  return '/app';
+function IconBadge({ tone, children }: { tone: 'ok' | 'info' | 'error'; children: React.ReactNode }) {
+  const cls =
+    tone === 'ok'
+      ? 'bg-[#e7f0df] text-[#4f7a3a] border-[#b9d3a6]'
+      : tone === 'error'
+        ? 'bg-brick/10 text-brick border-brick/30'
+        : 'bg-[#f3e2d2] text-[#6b3c22] border-[#dcc0a6]';
+  return <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full border ${cls}`}>{children}</div>;
 }
 
 /**
- * Verification is keyed by email (in the URL), not by an in-memory token, so a
- * refresh, a return visit, or a redirect from the sign-in page all work.
+ * Email verification.
+ *  • /verify-email?uid=…&token=…  — the link from the email: verifies the account.
+ *  • /verify-email (state.email)  — after sign-up / a blocked sign-in: "check your inbox" + resend.
  */
 export default function VerifyEmailPage() {
   const { lang } = useLang();
-  const { login } = useRole();
+  const bn = lang === 'bn';
   const navigate = useNavigate();
   const location = useLocation();
-  const [searchParams] = useSearchParams();
-  const state = location.state as VerifyEmailState | null;
+  const [params] = useSearchParams();
+  const uid = params.get('uid');
+  const token = params.get('token');
+  const stateEmail = (location.state as { email?: string } | null)?.email || '';
 
-  const email = searchParams.get('email') ?? '';
-  const next = searchParams.get('next');
+  const [linkState, setLinkState] = useState<LinkState>('checking');
+  const [linkError, setLinkError] = useState('');
+  const [verifiedEmail, setVerifiedEmail] = useState('');
 
-  const [code, setCode] = useState('');
-  const [devCode, setDevCode] = useState<string | null>(state?.devCode ?? null);
-  const [loading, setLoading] = useState(false);
-  const [resending, setResending] = useState(false);
-  const [cooldown, setCooldown] = useState(RESEND_COOLDOWN_SECONDS);
-  const [verified, setVerified] = useState(false);
-  const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
+  const [email, setEmail] = useState(stateEmail);
+  const [sending, setSending] = useState(false);
+  const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
+  const cooldown = useCooldown(stateEmail ? 60 : 0); // a link was just sent at sign-up
+  const ran = useRef(false);
 
   useEffect(() => {
-    if (cooldown <= 0) return;
-    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
-    return () => clearTimeout(t);
-  }, [cooldown]);
+    if (!uid || !token || ran.current) return;
+    ran.current = true; // links are single-use: don't double-submit (React strict mode)
+    confirmEmailVerification(uid, token)
+      .then((res) => {
+        setVerifiedEmail(res.email || '');
+        setEmail(res.email || '');
+        setLinkState(res.status === 'already_verified' ? 'already' : 'verified');
+      })
+      .catch((err) => {
+        setLinkError(
+          err instanceof ApiError
+            ? bn
+              ? err.messageBn
+              : err.message
+            : bn
+              ? 'যাচাই করা যায়নি। আবার চেষ্টা করুন।'
+              : 'Could not verify. Please try again.',
+        );
+        setLinkState('error');
+      });
+  }, [uid, token, bn]);
 
-  if (!email) {
+  const resend = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!email || sending || cooldown.active) return;
+    setSending(true);
+    setNotice(null);
+    try {
+      await resendVerificationEmail(email.trim());
+      cooldown.start(60);
+      setNotice({
+        tone: 'ok',
+        text: bn
+          ? 'অ্যাকাউন্টটি যাচাই-অপেক্ষমাণ থাকলে নতুন লিংক পাঠানো হয়েছে। ইনবক্স ও স্প্যাম ফোল্ডার দেখুন।'
+          : "If that account is waiting for verification, a new link is on its way. Check your inbox and spam folder.",
+      });
+    } catch (err) {
+      if (err instanceof ApiError && typeof err.details.retryAfter === 'number') cooldown.start(err.details.retryAfter);
+      setNotice({ tone: 'error', text: err instanceof ApiError ? (bn ? err.messageBn : err.message) : String(err) });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const resendLabel = cooldown.active
+    ? bn
+      ? `আবার পাঠান (${cooldown.left} সে.)`
+      : `Resend in ${cooldown.left}s`
+    : bn
+      ? 'যাচাই ইমেইল আবার পাঠান'
+      : 'Resend verification email';
+
+  const noticeBox = notice && (
+    <div
+      role={notice.tone === 'error' ? 'alert' : 'status'}
+      className={`rounded-lg border p-3 text-sm ${
+        notice.tone === 'ok' ? 'border-[#b9d3a6] bg-[#eef5e8] text-[#3f6330]' : 'border-brick/30 bg-brick/10 text-brick'
+      }`}
+    >
+      {notice.text}
+    </div>
+  );
+
+  const resendForm = (
+    <form onSubmit={resend} className="space-y-3">
+      <Input
+        type="email"
+        label={bn ? 'ইমেইল ঠিকানা' : 'Email Address'}
+        placeholder="name@example.com"
+        icon={Mail}
+        autoComplete="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        required
+      />
+      <Button type="submit" size="lg" variant="primary" loading={sending} disabled={cooldown.active} className="w-full justify-center">
+        <RotateCcw className="mr-1.5 h-4 w-4" />
+        <span>{resendLabel}</span>
+      </Button>
+    </form>
+  );
+
+  const backToSignIn = (
+    <div className="border-t border-[#e7d6c6] pt-5 text-center text-sm">
+      <Link to="/signin" state={{ email }} className="inline-flex items-center gap-1 font-semibold text-clay-deep hover:underline">
+        <ArrowLeft className="h-3.5 w-3.5" />
+        <span>{bn ? 'সাইন ইন পাতায় ফিরুন' : 'Back to sign in'}</span>
+      </Link>
+    </div>
+  );
+
+  // ——— Opened the link from the email ———
+  if (uid && token) {
+    if (linkState === 'checking') {
+      return (
+        <div className="space-y-4 py-6 text-center font-body" aria-busy="true">
+          <Loader2 className="mx-auto h-10 w-10 animate-spin text-[#8a5a3c]" />
+          <p className="text-sm text-ink-soft">{bn ? 'আপনার ইমেইল যাচাই করা হচ্ছে…' : 'Verifying your email…'}</p>
+        </div>
+      );
+    }
+    if (linkState === 'verified' || linkState === 'already') {
+      return (
+        <div className="space-y-6 text-center font-body">
+          <IconBadge tone="ok">
+            <CheckCircle2 className="h-7 w-7" />
+          </IconBadge>
+          <div>
+            <h1 className="font-display text-2xl font-bold text-ink">
+              {linkState === 'verified' ? (bn ? 'ইমেইল যাচাই সম্পন্ন' : 'Email verified') : bn ? 'ইতিমধ্যে যাচাইকৃত' : 'Already verified'}
+            </h1>
+            <p className="mt-2 text-sm text-[#8a6a55]">
+              {linkState === 'verified'
+                ? bn
+                  ? 'আপনার অ্যাকাউন্ট চালু হয়েছে। এখন সাইন ইন করুন।'
+                  : 'Your account is now active. Sign in to get started.'
+                : bn
+                  ? 'এই ইমেইলটি আগেই যাচাই করা হয়েছে। সাইন ইন করুন।'
+                  : 'This email was already verified. You can sign in.'}
+            </p>
+          </div>
+          <Button size="lg" variant="primary" className="w-full justify-center" onClick={() => navigate('/signin', { state: { email: verifiedEmail, verified: true } })}>
+            <span>{bn ? 'সাইন ইন করুন' : 'Continue to sign in'}</span>
+            <ArrowRight className="ml-1.5 h-4 w-4" />
+          </Button>
+        </div>
+      );
+    }
     return (
-      <div className="space-y-4 font-body text-center">
-        <h1 className="font-display text-xl font-bold text-ink">
-          {lang === 'bn' ? 'কোনো অপেক্ষমাণ যাচাই পাওয়া যায়নি' : 'No Pending Verification Found'}
-        </h1>
-        <p className="text-xs text-granite">
-          {lang === 'bn'
-            ? 'সাইন ইন করুন — অ্যাকাউন্ট যাচাই না হয়ে থাকলে আমরা আপনাকে এখানে নিয়ে আসব।'
-            : 'Sign in — if your account still needs verifying, we will bring you back here with a new code.'}
-        </p>
-        <Link to="/signin" className="inline-flex items-center gap-1.5 text-xs font-semibold text-clay-deep hover:underline">
-          <span>{lang === 'bn' ? 'সাইন ইন পাতায় যান' : 'Go to Sign In'}</span>
-          <ArrowRight className="h-3.5 w-3.5" />
-        </Link>
+      <div className="space-y-6 font-body">
+        <div className="text-center">
+          <IconBadge tone="error">
+            <AlertCircle className="h-7 w-7" />
+          </IconBadge>
+          <h1 className="mt-4 font-display text-2xl font-bold text-ink">{bn ? 'লিংকটি কাজ করেনি' : "This link didn't work"}</h1>
+          <p className="mt-2 text-sm text-[#8a6a55]">{linkError}</p>
+          <ScalesDivider className="mt-5" />
+        </div>
+        {noticeBox}
+        {resendForm}
+        {backToSignIn}
       </div>
     );
   }
 
-  const showError = (err: unknown, fallbackEn: string, fallbackBn: string) => {
-    if (err instanceof ApiError) {
-      setError(lang === 'bn' ? err.messageBn : err.message);
-    } else {
-      setError(lang === 'bn' ? fallbackBn : fallbackEn);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!code.trim()) return;
-    setError('');
-    setNotice('');
-    setLoading(true);
-    try {
-      const res = await confirmEmailVerification(email, code.trim());
-      login(res.user, res.token);
-      setVerified(true);
-      setTimeout(() => navigate(next || homeFor(res.user), { replace: true }), 1000);
-    } catch (err) {
-      if (err instanceof ApiError && err.code === 'ALREADY_VERIFIED') {
-        navigate(`/signin?email=${encodeURIComponent(email)}`, { replace: true });
-        return;
-      }
-      showError(err, 'Could not verify the code. Please try again.', 'কোডটি যাচাই করা যায়নি। আবার চেষ্টা করুন।');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResend = async () => {
-    setError('');
-    setNotice('');
-    setResending(true);
-    try {
-      const res = await resendVerificationCode(email);
-      setDevCode(res.devVerificationCode ?? null);
-      setCode('');
-      setCooldown(RESEND_COOLDOWN_SECONDS);
-      setNotice(lang === 'bn' ? 'নতুন কোড পাঠানো হয়েছে। আগের কোডটি আর কাজ করবে না।' : 'A new code has been sent. Earlier codes no longer work.');
-    } catch (err) {
-      showError(err, 'Could not send a new code.', 'নতুন কোড পাঠানো যায়নি।');
-    } finally {
-      setResending(false);
-    }
-  };
-
+  // ——— "Check your inbox" (after sign-up or a blocked sign-in) ———
   return (
-    <div className="space-y-6 font-body text-center">
-      <div className="flex justify-center text-clay-deep">
-        <div className="rounded-full bg-clay-tint p-3 border border-clay/30">
-          <Mail className="h-8 w-8 text-clay-deep" />
-        </div>
+    <div className="space-y-6 font-body">
+      <div className="text-center">
+        <IconBadge tone="info">
+          <Mail className="h-7 w-7" />
+        </IconBadge>
+        <h1 className="mt-4 font-display text-2xl font-bold text-ink">{bn ? 'আপনার ইমেইল দেখুন' : 'Check your email'}</h1>
+        {stateEmail ? (
+          <p className="mt-2 text-sm text-[#8a6a55]">
+            {bn ? 'আমরা একটি যাচাই লিংক পাঠিয়েছি ' : 'We sent a verification link to '}
+            <strong className="break-all text-ink">{stateEmail}</strong>
+            {bn ? ' ঠিকানায়। অ্যাকাউন্ট চালু করতে লিংকে ক্লিক করুন।' : '. Click it to activate your account.'}
+          </p>
+        ) : (
+          <p className="mt-2 text-sm text-[#8a6a55]">
+            {bn
+              ? 'নতুন যাচাই লিংক পেতে আপনার নিবন্ধিত ইমেইল দিন।'
+              : 'Enter the email you registered with and we’ll send a new verification link.'}
+          </p>
+        )}
+        <ScalesDivider className="mt-5" />
       </div>
 
-      <div>
-        <h1 className="font-display text-2xl font-bold text-ink">
-          {lang === 'bn' ? 'অ্যাকাউন্ট যাচাইকরণ' : 'Verify Your Account'}
-        </h1>
-        <p className="mt-1 text-xs text-granite">
-          {lang === 'bn'
-            ? `আমরা ${email} ঠিকানায় একটি ৬-সংখ্যার কোড পাঠিয়েছি`
-            : `We've sent a 6-digit code to ${email}`}
-        </p>
-      </div>
-
-      {verified ? (
-        <div className="p-4 rounded bg-clay-tint border border-clay text-xs text-clay-deep font-semibold flex items-center justify-center gap-2">
-          <CheckCircle2 className="h-4 w-4" />
-          <span>{lang === 'bn' ? 'যাচাই সফল হয়েছে! রিডাইরেক্ট হচ্ছে...' : 'Verified! Redirecting...'}</span>
-        </div>
-      ) : (
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {devCode && (
-            <div className="p-2.5 rounded bg-bone-deep border border-granite-soft text-[11px] text-ink-soft">
-              {lang === 'bn' ? 'ডেভ মোড — আপনার কোড: ' : 'Dev mode — your code: '}
-              <button
-                type="button"
-                onClick={() => setCode(devCode)}
-                className="font-mono font-bold text-ink tracking-widest underline decoration-dotted"
-                title={lang === 'bn' ? 'কোড বসাতে ক্লিক করুন' : 'Click to fill in'}
-              >
-                {devCode}
-              </button>
-            </div>
-          )}
-
-          <Input
-            type="text"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            placeholder="123456"
-            value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-            className="text-center font-mono text-lg tracking-widest"
-            maxLength={6}
-            required
-          />
-
-          {error && (
-            <p className="flex items-center justify-center gap-1.5 text-xs text-brick">
-              <AlertCircle className="h-3.5 w-3.5" />
-              {error}
-            </p>
-          )}
-          {notice && !error && <p className="text-xs text-clay-deep">{notice}</p>}
-
-          <Button size="lg" variant="primary" type="submit" loading={loading} className="w-full justify-center">
-            <span>{lang === 'bn' ? 'যাচাই সম্পন্ন করুন' : 'Confirm Code'}</span>
-            <ArrowRight className="ml-1.5 h-4 w-4" />
-          </Button>
-
-          <button
-            type="button"
-            onClick={handleResend}
-            disabled={resending || cooldown > 0}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-clay-deep hover:underline disabled:text-granite disabled:no-underline disabled:cursor-not-allowed"
-          >
-            <RotateCw className={`h-3.5 w-3.5 ${resending ? 'animate-spin' : ''}`} />
-            {cooldown > 0
-              ? lang === 'bn'
-                ? `নতুন কোড পাঠান (${cooldown}s)`
-                : `Resend code (${cooldown}s)`
-              : lang === 'bn'
-                ? 'নতুন কোড পাঠান'
-                : 'Resend code'}
-          </button>
-        </form>
+      {stateEmail && (
+        <ul className="space-y-1.5 rounded-lg border border-[#e7d6c6] bg-[#fffdf9] p-4 text-sm text-ink-soft">
+          <li>• {bn ? 'লিংকটি ২৪ ঘণ্টা পর্যন্ত একবার ব্যবহার করা যাবে।' : 'The link works once and expires in 24 hours.'}</li>
+          <li>• {bn ? 'ইমেইল না পেলে স্প্যাম বা প্রমোশন ফোল্ডার দেখুন।' : "Can't find it? Check your spam or promotions folder."}</li>
+        </ul>
       )}
 
-      <div className="text-center text-xs text-ink-soft">
-        <Link to="/signin" className="text-clay-deep hover:underline">
-          {lang === 'bn' ? 'সাইন ইন পাতায় ফিরুন' : 'Back to sign in'}
-        </Link>
-      </div>
+      {noticeBox}
+
+      {stateEmail ? (
+        <div className="space-y-3">
+          <Button size="lg" variant="primary" loading={sending} disabled={cooldown.active} onClick={() => void resend()} className="w-full justify-center">
+            <RotateCcw className="mr-1.5 h-4 w-4" />
+            <span>{resendLabel}</span>
+          </Button>
+          <p className="text-center text-xs text-granite">
+            {bn ? 'ভুল ইমেইল দিয়েছেন? ' : 'Used the wrong email? '}
+            <Link to="/signup" className="font-semibold text-clay-deep hover:underline">
+              {bn ? 'আবার নিবন্ধন করুন' : 'Sign up again'}
+            </Link>
+          </p>
+        </div>
+      ) : (
+        resendForm
+      )}
+
+      {backToSignIn}
     </div>
   );
 }

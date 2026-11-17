@@ -20,10 +20,12 @@ import {
 import { useLang } from '../context/LanguageContext';
 import { useRole } from '../context/RoleContext';
 import { LanguageToggle } from '../components/ui/LanguageToggle';
-import { LogoMark } from '../components/ui/Logo';
 import { DisclaimerStrip } from '../components/ui/DisclaimerStrip';
-import { listConversations, listNotifications } from '../lib/api';
-import type { AppNotification, Conversation } from '../mocks/types';
+import { listConversations } from '../lib/api';
+import type { Conversation } from '../mocks/types';
+import { useInbox } from '../lib/useInbox';
+import { HeaderInbox } from '../components/ui/HeaderInbox';
+import { LogoMark } from '../components/ui/Logo';
 
 export function AppLayout() {
   const { lang } = useLang();
@@ -32,14 +34,14 @@ export function AppLayout() {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [recentConversations, setRecentConversations] = useState<Conversation[]>([]);
-  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const inbox = useInbox(!!user);
 
   useEffect(() => {
     listConversations().then((res) => setRecentConversations(res.slice(0, 4)));
-    listNotifications().then(setNotifications);
   }, [location.pathname]);
 
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
+  const badgeFor = (to: string) =>
+    to === '/app/notifications' ? inbox.unreadNotifications : to === '/app/messages' ? inbox.unreadThreads : 0;
 
   const navItems = [
     { to: '/app', labelBn: 'ড্যাশবোর্ড', labelEn: 'Dashboard', icon: LayoutDashboard },
@@ -74,7 +76,7 @@ export function AppLayout() {
         {/* Brand header */}
         <div className="header-wood flex h-16 items-center justify-between px-5">
           <Link to="/" className="flex items-center gap-2">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-[#FDF6E8] p-0.5 shadow-sm"><LogoMark className="h-full w-full" /></span>
+            <LogoMark className="h-9 w-9" />
             <div className="flex flex-col">
               <span className="font-display text-sm font-bold tracking-tight text-bone">LEGAL AI</span>
               <span className="text-[10px] text-clay-tint font-medium -mt-1">
@@ -110,8 +112,7 @@ export function AppLayout() {
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.to || (item.to !== '/app' && location.pathname.startsWith(item.to));
-            const isNotifications = item.to === '/app/notifications';
-            
+            const badge = badgeFor(item.to);
             return (
               <Link
                 key={item.to}
@@ -125,9 +126,9 @@ export function AppLayout() {
               >
                 <Icon className="h-4 w-4 shrink-0" />
                 <span className="flex-1">{lang === 'bn' ? item.labelBn : item.labelEn}</span>
-                {isNotifications && unreadCount > 0 && (
-                  <span className="rounded-full bg-clay-deep px-1.5 py-0.2 text-[10px] text-white font-mono">
-                    {unreadCount}
+                {badge > 0 && (
+                  <span className="min-w-[18px] rounded-full bg-red-600 px-1.5 text-center text-[10px] font-bold leading-[18px] text-white">
+                    {badge > 9 ? '9+' : badge}
                   </span>
                 )}
               </Link>
@@ -159,14 +160,19 @@ export function AppLayout() {
         {/* User footer */}
         <div className="border-t border-granite-soft p-3 bg-bone/50">
           <div className="flex items-center justify-between px-2">
-            <div className="flex items-center gap-2 truncate">
+            <Link
+              to="/app/settings"
+              onClick={() => setSidebarOpen(false)}
+              title={lang === 'bn' ? 'আমার প্রোফাইল' : 'My profile'}
+              className="group flex min-w-0 flex-1 items-center gap-2 rounded p-1 -m-1 hover:bg-clay-tint transition"
+            >
               <img
                 src={user?.avatarUrl || '/logo.svg'}
                 alt="Avatar"
-                className="h-6 w-6 rounded-full object-cover border border-granite"
+                className="h-6 w-6 shrink-0 rounded-full object-cover border border-granite"
               />
-              <span className="truncate text-xs font-semibold text-ink">{user?.name || 'Citizen'}</span>
-            </div>
+              <span className="truncate text-xs font-semibold text-ink group-hover:text-clay-deep group-hover:underline">{user?.name || 'Citizen'}</span>
+            </Link>
             <button
               onClick={() => {
                 logout();
@@ -200,16 +206,7 @@ export function AppLayout() {
 
           <div className="flex items-center gap-3">
             <LanguageToggle tone="invert" />
-            <Link
-              to="/app/notifications"
-              className="relative rounded p-1.5 text-bone hover:bg-bone/10 transition"
-              aria-label="Notifications"
-            >
-              <Bell className="h-4 w-4" />
-              {unreadCount > 0 && (
-                <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-clay-tint" />
-              )}
-            </Link>
+            <HeaderInbox inbox={inbox} base="/app" />
           </div>
         </header>
 

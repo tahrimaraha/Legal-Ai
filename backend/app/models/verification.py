@@ -6,7 +6,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY, ENUM, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -56,12 +56,6 @@ class VerificationRequest(UUIDPkMixin, TimestampMixin, Base):
     sla_due_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    # `issue_summary` holds the Bangla question; these carry the rest of the snapshot.
-    question_excerpt_en: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    answer_excerpt_bn: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    answer_excerpt_en: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    citations_snapshot: Mapped[list[dict]] = mapped_column(JSONB, nullable=False, default=list)
-    decline_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     assignments: Mapped[list["VerificationAssignment"]] = relationship(
         back_populates="request", cascade="all, delete-orphan"
@@ -98,7 +92,6 @@ class VerificationAssignment(UUIDPkMixin, TimestampMixin, Base):
     payout_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True), ForeignKey("payouts.id", ondelete="SET NULL"), nullable=True
     )
-    payment_processed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     request: Mapped["VerificationRequest"] = relationship(back_populates="assignments")
     verdict: Mapped[Optional["VerificationVerdict"]] = relationship(
@@ -119,10 +112,6 @@ class VerificationVerdict(UUIDPkMixin, TimestampMixin, Base):
     summary_bn: Mapped[str] = mapped_column(Text, nullable=False)
     summary_en: Mapped[str] = mapped_column(Text, nullable=False)
     corrected_statement: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    corrected_statement_en: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    added_citations: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False, default=list)
-    disputed_citations: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False, default=list)
-    minutes_spent: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     cited_section_ids: Mapped[list[uuid.UUID]] = mapped_column(
         ARRAY(UUID(as_uuid=True)), nullable=False, default=list
     )
