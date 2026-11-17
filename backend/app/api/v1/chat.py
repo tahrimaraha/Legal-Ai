@@ -5,6 +5,7 @@ API process is running. See app/rag/ for the engine.
 """
 from __future__ import annotations
 
+import json
 import time
 import uuid
 from functools import lru_cache
@@ -19,6 +20,7 @@ from app.core.logging import get_logger
 from app.rag import llm
 from app.rag.engine import LegalEngine
 from app.rag.lexicon import CRIME_LABELS, TOPIC_BY_ID
+from app.rag.ml import ModelRegistry
 from app.schemas.chat import ChatRequest, RecommendRequest
 
 logger = get_logger(__name__)
@@ -43,7 +45,20 @@ def get_engine() -> LegalEngine:
     t0 = time.perf_counter()
     engine = LegalEngine(path)
     logger.info("corpus_loaded", acts=len(engine.acts), seconds=round(time.perf_counter() - t0, 2))
+    if settings.ml_models_enabled:
+        engine.models = get_models()
+        engine.models.start()  # loads in the background; keyword search answers until it is ready
     return engine
+
+
+def _backend_path(p: str) -> Path:
+    path = Path(p)
+    return path if path.is_absolute() else BACKEND_ROOT / path
+
+
+@lru_cache
+def get_models() -> ModelRegistry:
+    return ModelRegistry(_backend_path(settings.models_dir))
 
 
 def corpus_status() -> dict | str:
@@ -64,7 +79,9 @@ async def chat(payload: ChatRequest) -> dict:
         rewritten = await llm.rewrite(payload.question, msg["citations"], steps, history)
         if rewritten:
             msg["bodyEn"], msg["bodyBn"] = rewritten
-    return {"message": msg, "conversationId": payload.conversationId or f"conv-{uuid.uuid4().hex[:10]}", "topics": result["topics"]}
+    return {"message": msg, "conversationId": payload.conversationId or f"conv-{uuid.uuid4().hex[:10]}", "topics": result["topics"],
+            "domain": result.get("domain"), "domainConfirmed": result.get("domainConfirmed", False),
+            "retrieval": result.get("retrieval")}
 
 
 @router.post("/recommend/analyze")
@@ -84,3 +101,18 @@ async def crime_insight(category: str = Query(..., description="e.g. Theft, Murd
 @router.get("/corpus/stats")
 async def stats() -> dict:
     return get_engine().stats()
+
+
+@router.get("/ai/model-report")
+async def model_report() -> dict:
+    """Notebook benchmark (classification, retrieval, generation) + evaluation of the deployed assistant."""
+    engine = get_engine()
+    d = _backend_path(settings.models_dir)
+
+    def read(name: str) -> dict | None:
+        f = d / name
+        return json.loads(f.read_text(encoding="utf-8")) if f.exists() else None
+
+    return {"notebook": read("model_report.json"), "app": read("app_evaluation.json"),
+            "runtime": engine.models.status() if engine.models else {"loaded": False, "retrieval": "keyword"},
+            "corpus": engine.stats()}

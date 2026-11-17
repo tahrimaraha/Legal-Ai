@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Check, Copy, Flag, ThumbsDown, ThumbsUp, ShieldCheck, FileText } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Check, Copy, Flag, ThumbsDown, ThumbsUp, ShieldCheck, FileText, Sparkles } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
 import type { Citation, Message } from '../../mocks/types';
 import { CitationChip } from '../ui/CitationChip';
@@ -62,6 +62,8 @@ export function AssistantMessage({
           </p>
         ))}
       </div>
+
+      {done && <ModelNote message={message} lang={lang} />}
 
       {done && message.citations.length > 0 && (
         <div className="mt-7 border-t border-granite-soft pt-5">
@@ -139,5 +141,28 @@ export function AssistantMessage({
         </div>
       )}
     </article>
+  );
+}
+
+/** Shows the trained classifier's legal-area prediction — only when the backend confirmed it against the cited Acts. */
+function ModelNote({ message, lang }: { message: Message; lang: 'bn' | 'en' }) {
+  const top = message.domain?.[0];
+  if (!top || !message.domainConfirmed || message.citations.length === 0) return null;
+  const bn = lang === 'bn';
+  const pct = `${Math.round(top.confidence * 100)}%`;
+  return (
+    <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-caption text-granite">
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-clay/30 bg-clay-tint px-2.5 py-1 font-semibold text-clay-deep">
+        <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+        {bn ? 'আইনের ক্ষেত্র' : 'Legal area'}: {bn ? top.labelBn : top.labelEn}
+        <span className="font-normal text-granite">· {bn ? pct.replace(/\d/g, (d) => '০১২৩৪৫৬৭৮৯'[+d]) : pct}</span>
+      </span>
+      {message.retrieval === 'hybrid' && (
+        <span>{bn ? 'উৎস খোঁজা হয়েছে হাইব্রিড সার্চে (BM25 + E5)' : 'Sources found with hybrid search (BM25 + E5)'}</span>
+      )}
+      <Link to="/ai-model" className="font-semibold text-clay-deep hover:underline">
+        {bn ? 'আমাদের এআই কীভাবে কাজ করে' : 'How our AI works'}
+      </Link>
+    </div>
   );
 }

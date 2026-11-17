@@ -43,6 +43,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Set up and tear down process-wide resources (DB engine, Redis pool)."""
     app.state.redis = aioredis.from_url(settings.redis_url, decode_responses=True)
     await ensure_app_tables()
+    corpus_status()  # opens the legal corpus and starts loading the trained models in the background
     logger.info("app_startup", app_env=settings.app_env)
     try:
         yield

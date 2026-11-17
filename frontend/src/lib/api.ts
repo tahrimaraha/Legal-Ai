@@ -336,11 +336,11 @@ export async function askQuestion(
 ): Promise<{ message: Message; conversationId: string }> {
   let answer: Message;
   try {
-    const res = await post<{ message: Message }>('/chat', {
+    const res = await post<{ message: Message; domain?: Message['domain']; domainConfirmed?: boolean; retrieval?: Message['retrieval'] }>('/chat', {
       question,
       history: history.slice(-6).map((m) => ({ role: m.role, text: (m.bodyEn || m.bodyBn).slice(0, 1500) })),
     });
-    answer = res.message;
+    answer = { ...res.message, domain: res.domain ?? null, domainConfirmed: !!res.domainConfirmed, retrieval: res.retrieval };
   } catch (err) {
     if (err instanceof ApiError && err.status >= 400 && err.status < 500 && err.status !== 404) throw err;
     throw new ApiError(
@@ -824,4 +824,31 @@ export async function saveMyAvailability(data: LawyerAvailability): Promise<Lawy
 export async function recordLawyerPayout(kind: 'verification' | 'consultation', id: string): Promise<{ ok: boolean }> {
   await post(`/admin/payouts/${kind}/${encodeURIComponent(id)}`);
   return { ok: true };
+}
+
+// ——— AI model report (notebook benchmark + evaluation of the deployed assistant) ———
+export type ReportRow = Record<string, string | number | null>;
+export interface RetrievalMetrics {
+  n: number;
+  'Hit@1': number;
+  'Hit@3': number;
+  'Hit@5': number;
+  'Hit@10': number;
+  'MRR@10': number;
+}
+export interface ModelReport {
+  notebook: { classification: ReportRow[]; zeroShot: ReportRow[]; retrieval: ReportRow[]; generation: ReportRow[]; classes: string[] } | null;
+  app: {
+    generatedAt: string;
+    questions: number;
+    retrieval: Record<'keyword' | 'hybrid', { all: RetrievalMetrics; en: RetrievalMetrics; bn: RetrievalMetrics; msPerQuery: number }>;
+    outOfScope: { questions: number; rejected: number; rate: number };
+    domainOnQuestions?: { questions: number; top1: number; top3: number; shown: number; shownCorrect: number };
+  } | null;
+  runtime: { loaded: boolean; classifier?: string | null; dense?: string | null; retrieval: 'hybrid' | 'keyword' };
+  corpus: { acts: number; sections: number; crimeYears: number[] };
+}
+
+export async function getModelReport(): Promise<ModelReport> {
+  return apiRequest<ModelReport>('/ai/model-report');
 }

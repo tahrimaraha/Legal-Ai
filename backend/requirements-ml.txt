@@ -1,0 +1,8 @@
+# Trained models from model/legal-ai-output-notebook.ipynb (optional — without these the assistant uses keyword search only)
+#   pip install -r requirements-ml.txt
+scikit-learn==1.6.1          # must match the version the notebook trained with (domain classifier)
+numpy>=1.26
+scipy>=1.11
+joblib>=1.3
+nltk>=3.8                    # Porter stemmer, as used in training
+sentence-transformers>=3.1   # multilingual-E5-small query encoder (downloads ~470 MB on first start)

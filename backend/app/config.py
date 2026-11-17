@@ -60,6 +60,8 @@ class Settings(BaseSettings):
     vector_backend: str = "pgvector"
     free_questions_per_day: int = 20
     corpus_path: str = "data/legal_corpus.db"  # prebuilt by scripts/build_corpus.py
+    models_dir: str = "data/models"  # trained models exported by scripts/export_models.py
+    ml_models_enabled: bool = True  # domain classifier + E5 hybrid retrieval (falls back to keyword search)
 
     # --- Payments ---
     payment_enabled_methods: str = "BKASH,NAGAD,SSLCOMMERZ,MOCK"

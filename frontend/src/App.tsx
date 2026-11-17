@@ -20,6 +20,7 @@ const LawyersPage = lazy(() => import('./pages/public/LawyersPage'));
 const LawyerProfilePage = lazy(() => import('./pages/public/LawyerProfilePage'));
 const FaqPage = lazy(() => import('./pages/public/FaqPage'));
 const AboutPage = lazy(() => import('./pages/public/AboutPage'));
+const AiModelPage = lazy(() => import('./pages/public/AiModelPage'));
 const TermsPage = lazy(() => import('./pages/public/TermsPage'));
 const PrivacyPage = lazy(() => import('./pages/public/PrivacyPage'));
 const DisclaimerPage = lazy(() => import('./pages/public/DisclaimerPage'));
@@ -108,6 +109,7 @@ export default function App() {
           <Route path="/lawyers/:id" element={<LawyerProfilePage />} />
           <Route path="/faq" element={<FaqPage />} />
           <Route path="/about" element={<AboutPage />} />
+          <Route path="/ai-model" element={<AiModelPage />} />
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/disclaimer" element={<DisclaimerPage />} />

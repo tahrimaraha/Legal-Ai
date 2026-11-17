@@ -157,7 +157,7 @@ export const bn: Strings = {
     blurb: 'বাংলাদেশের নাগরিকদের জন্য দ্বিভাষিক আইনি তথ্য-সহায়ক, একটি নির্বাচিত আইন সংগ্রহের ভিত্তিতে তৈরি।',
     cols: [
       { title: 'সেবা', links: [{ label: 'প্রশ্ন করুন', to: '/app/chat' }, { label: 'নোটিশের খসড়া', to: '/app/draft' }, { label: 'শব্দকোষ', to: '/app/glossary' }, { label: 'ইতিহাস', to: '/app/history' }] },
-      { title: 'জানুন', links: [{ label: 'কীভাবে কাজ করে', to: '/#how' }, { label: 'সুবিধা', to: '/#features' }, { label: 'আইন সংগ্রহ', to: '/#statutes' }, { label: 'প্রশ্নোত্তর', to: '/#faq' }] },
+      { title: 'জানুন', links: [{ label: 'কীভাবে কাজ করে', to: '/#how' }, { label: 'সুবিধা', to: '/#features' }, { label: 'আইন সংগ্রহ', to: '/#statutes' }, { label: 'প্রশ্নোত্তর', to: '/#faq' }, { label: 'এআই মডেল ও নির্ভুলতা', to: '/ai-model' }] },
       { title: 'প্রকল্প', links: [{ label: 'নিরাপত্তা ও সীমা', to: '/#safety' }, { label: 'অ্যাডমিন', to: '/admin' }, { label: 'সাইন ইন', to: '/login' }, { label: 'কম্পোনেন্ট তালিকা', to: '/kitchen-sink' }] },
     ],
     disclaimerTitle: 'দাবি অস্বীকার',

@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Optional
 
 from app.rag.crime import CrimeStats
+from app.rag.ml import act_domain
 from app.rag.lexicon import HEADS, PENAL_TOPICS, SYNONYMS, TOPICS, Topic
 from app.rag.textproc import BN2EN, has_bn, norm_query, split_sentences, to_bn_digits, tokenize
 
@@ -26,6 +27,33 @@ LEGAL_CUES = re.compile(
     r"\b(law|legal|illegal|lawful|act|section|court|police|punish|penalt|fine|rights?|case|crime|offen[cs]e|"
     r"sue|lawyer|advocate|notice|bail|arrest|complain|legally|allowed|entitled|compensation)\b|"
     r"আইন|শাস্তি|মামলা|আদালত|অধিকার|অপরাধ|ধারা|দণ্ড|জরিমানা|আইনজীবী|নোটিশ|জামিন|অভিযোগ|ক্ষতিপূরণ|বেআইনি|বৈধ")
+
+
+# A question about another country's law ("... in California") is out of scope: the corpus is Bangladesh law only.
+_PLACES_EN = (r"(the )?(usa|us|u\.s\.|united states|america|california|texas|new york|uk|united kingdom|england|britain|"
+              r"india|pakistan|canada|australia|germany|france|japan|china|dubai|uae|saudi arabia|malaysia|singapore)")
+# Only questions about the law OF another place: "penalty for X in California", "is it legal in the UK", "Indian law".
+FOREIGN_LAW_EN = re.compile(
+    r"\b(laws?|legal|illegal|lawful|penalt\w*|punish\w*|fine|sentence|jail|prison|allowed|crime)\b[^.?!]{0,60}?\bin " + _PLACES_EN + r"\b|"
+    r"\b(us|american|californian|uk|british|english|indian|pakistani|canadian|australian|german|french|japanese|chinese|saudi|"
+    r"malaysian|singaporean)\s+(law|laws|legal system|penal code|court)\b", re.I)
+# Bengali: place name + locative ending, then (within a few words) a punishment / legality word. Matched on text with
+# "য়" decomposed (য + ়), as Bengali keyboards type it; no \b, which is unreliable next to Bengali vowel signs.
+FOREIGN_LAW_BN = re.compile(
+    ("(যুক্তরাষ্ট্র|আমেরিকা|ক্যালিফোর্নিয়া|যুক্তরাজ্য|ইংল্যান্ড|ব্রিটেন|ভারত|পাকিস্তান|কানাডা|অস্ট্রেলিয়া|জার্মানি|ফ্রান্স|জাপান|চীন|দুবাই|"
+     "সৌদি আরব|মালয়েশিয়া|সিঙ্গাপুর)(ে|য়|এ|তে|ের আইনে|এর আইনে)[^।?!]{0,40}?(শাস্তি|দণ্ড|জরিমানা|বৈধ|অবৈধ|আইনে)").replace("\u09df", "\u09af\u09bc"))
+
+
+def is_foreign_law(question: str) -> bool:
+    """True for questions about another country's law; the corpus covers Bangladesh law only."""
+    if re.search(r"bangladesh|বাংলাদেশ", question, re.I):
+        return False
+    return bool(FOREIGN_LAW_EN.search(question) or FOREIGN_LAW_BN.search(question.replace("\u09df", "\u09af\u09bc")))
+
+
+# Dense (E5) weight in the fusion by query language: the notebook's benchmark found E5 on par with BM25 for
+# English but clearly weaker for Bengali-to-Bengali retrieval (Hit@5 0.41 vs 0.60), so it gets half weight there.
+DENSE_WEIGHT = {"en": 1.0, "bn": 0.5}
 
 
 @dataclass
@@ -42,6 +70,7 @@ class Analysis:
     topics: list[Topic] = field(default_factory=list)
     tokens: list[str] = field(default_factory=list)
     expand: list[str] = field(default_factory=list)
+    lang: str = "en"
 
 
 class LegalEngine:
@@ -51,6 +80,7 @@ class LegalEngine:
         self.db.row_factory = sqlite3.Row
         self.lock = threading.Lock()
         self.crime = CrimeStats(self.db, self.lock)
+        self.models = None  # optional trained models (app.rag.ml.ModelRegistry), attached by the API
         with self.lock:
             self.acts = {r["id"]: r for r in self.db.execute("SELECT * FROM acts")}
             self.meta = dict(self.db.execute("SELECT key, value FROM meta").fetchall())
@@ -84,7 +114,7 @@ class LegalEngine:
                 expand += tokenize(to)
         for t in topics:
             expand += [x for e in t.expand for x in tokenize(e)]
-        return Analysis(topics, list(dict.fromkeys(tokens)), list(dict.fromkeys(expand)))
+        return Analysis(topics, list(dict.fromkeys(tokens)), list(dict.fromkeys(expand)), "bn" if has_bn(query) else "en")
 
     # ------------------------------------------------------------------- search --
     def _fts(self, tokens: list[str], act_ids: Optional[set[int]], limit: int) -> list[tuple[int, float]]:
@@ -105,7 +135,18 @@ class LegalEngine:
         worst = max(-r["r"] for r in rows) or 1.0
         return [(r["id"], -r["r"] / worst) for r in rows]
 
-    def search(self, an: Analysis, k: int = 4) -> list[Hit]:
+    @staticmethod
+    def _fuse(lexical: dict[int, float], dense: list[tuple[int, float]], w_dense: float = 1.0, k: int = 60) -> dict[int, float]:
+        """Weighted reciprocal-rank fusion of the keyword and dense rankings (the notebook's RAG ③), scaled to 0..1."""
+        fused: dict[int, float] = {}
+        for rank, sid in enumerate(sorted(lexical, key=lambda s: -lexical[s])):
+            fused[sid] = fused.get(sid, 0.0) + 1.0 / (k + rank + 1)
+        for rank, (sid, _) in enumerate(dense):
+            fused[sid] = fused.get(sid, 0.0) + w_dense / (k + rank + 1)
+        top = max(fused.values())
+        return {sid: v / top for sid, v in fused.items()}
+
+    def search(self, an: Analysis, k: int = 4, dense: Optional[list[tuple[int, float]]] = None) -> list[Hit]:
         cand: dict[int, float] = {}
         for sid, sc in self._fts(an.tokens, None, 80):
             cand[sid] = max(cand.get(sid, 0), sc)
@@ -114,6 +155,8 @@ class LegalEngine:
             toks = list(dict.fromkeys(an.tokens + [x for e in t.expand for x in tokenize(e)]))
             for sid, sc in self._fts(toks, ids, 40):
                 cand[sid] = max(cand.get(sid, 0), sc * (1.0 if i == 0 else 0.9))
+        if dense:
+            cand = self._fuse(cand, dense, DENSE_WEIGHT[an.lang])
         if not cand:
             return []
         ids = list(cand)
@@ -236,10 +279,12 @@ class LegalEngine:
             if prev:
                 q_for_search = f"{prev[-1]} {question}"
         an = self.analyze(q_for_search)
-        if not direct and not an.topics and not LEGAL_CUES.search(norm_query(q_for_search)):
+        foreign = not direct and is_foreign_law(question)
+        in_scope = not foreign and bool(direct or an.topics or LEGAL_CUES.search(norm_query(q_for_search)))
+        if not in_scope:
             hits: list[Hit] = []
         else:
-            hits = [direct] if direct else self.search(an)
+            hits = [direct] if direct else self.search(an, dense=self.dense_hits(q_for_search))
         confident = bool(hits) and (direct is not None or hits[0].score >= MIN_CONFIDENCE or bool(an.topics))
         qtoks = set(an.tokens) | set(an.expand)
         cites = [self.citation(h, qtoks) for h in hits] if confident else []
@@ -248,13 +293,43 @@ class LegalEngine:
         body_en, body_bn = self._compose(an, hits if confident else [], cites, crime_en, crime_bn, bool(direct))
         if llm_text and confident:
             body_en, body_bn = llm_text
+        domain = self.classify(q_for_search) if in_scope else None
+        domain_ok = self.domain_confirmed(domain, hits if cites else [])
         return {
             "message": {
                 "id": f"msg-{uuid.uuid4().hex[:12]}", "role": "assistant", "bodyBn": body_bn, "bodyEn": body_en,
                 "citations": cites, "createdAt": datetime.now(timezone.utc).isoformat(),
             },
             "topics": [t.id for t in an.topics],
+            "domain": domain,
+            "domainConfirmed": domain_ok,
+            "retrieval": "hybrid" if self._dense() and not direct else "keyword",
         }
+
+    # ------------------------------------------------------------ trained models --
+    def _dense(self):
+        m = self.models
+        return m.dense if m is not None and m.ready.is_set() else None
+
+    def dense_hits(self, query: str, k: int = 60) -> Optional[list[tuple[int, float]]]:
+        d = self._dense()
+        return d.search(query, k) if d else None
+
+    @staticmethod
+    def domain_confirmed(domain: Optional[list[dict]], hits: list[Hit], strong: float = 0.75) -> bool:
+        """Show a predicted legal area only if it matches an Act actually cited (labelled with the notebook's
+        title rules) or the classifier is very confident — the model was trained on statute text, not questions."""
+        if not domain or not hits:
+            return False
+        top = domain[0]
+        cited = {act_domain(f"{h.act['title_en'] or ''} {h.act['title_bn'] or ''}".strip()) for h in hits[:2]}
+        return top["labelEn"] in cited or top["confidence"] >= strong
+
+    def classify(self, text: str) -> Optional[list[dict]]:
+        m = self.models
+        if m is None or not m.ready.is_set() or m.classifier is None:
+            return None
+        return m.classifier.predict(text)
 
     def _compose(self, an: Analysis, hits: list[Hit], cites: list[dict], crime_en: str, crime_bn: str, direct: bool) -> tuple[str, str]:
         names_en = " / ".join(t.name_en.lower() for t in an.topics)
@@ -309,7 +384,7 @@ class LegalEngine:
     # --------------------------------------------------------- recommendations --
     def recommend(self, query: str) -> dict:
         an = self.analyze(query)
-        hits = self.search(an, k=3)
+        hits = self.search(an, k=3, dense=self.dense_hits(query))
         qtoks = set(an.tokens) | set(an.expand)
         areas = list(dict.fromkeys(a for t in an.topics for a in t.areas))
         cat = next((t.crime for t in an.topics if t.crime), None)
@@ -319,6 +394,7 @@ class LegalEngine:
             "urgent": any(t.urgent for t in an.topics),
             "statutes": [{"labelEn": c["labelEn"], "labelBn": c["labelBn"], "score": c["score"]}
                          for c in (self.citation(h, qtoks) for h in hits)],
+            "domain": self.classify(query),
             "crimeCategory": cat,
             "national": self.crime.national(cat) if cat else None,
             "districts": self.crime.district_stats(cat) if cat else {},

@@ -155,7 +155,7 @@ export const en = {
     blurb: 'A bilingual legal-information assistant for Bangladeshi citizens, grounded in a curated statute corpus.',
     cols: [
       { title: 'Product', links: [{ label: 'Ask a question', to: '/app/chat' }, { label: 'Draft a notice', to: '/app/draft' }, { label: 'Glossary', to: '/app/glossary' }, { label: 'History', to: '/app/history' }] },
-      { title: 'Learn', links: [{ label: 'How it works', to: '/#how' }, { label: 'Features', to: '/#features' }, { label: 'Statutes', to: '/#statutes' }, { label: 'FAQ', to: '/#faq' }] },
+      { title: 'Learn', links: [{ label: 'How it works', to: '/#how' }, { label: 'Features', to: '/#features' }, { label: 'Statutes', to: '/#statutes' }, { label: 'FAQ', to: '/#faq' }, { label: 'AI model & accuracy', to: '/ai-model' }] },
       { title: 'Project', links: [{ label: 'Safety and limits', to: '/#safety' }, { label: 'Admin', to: '/admin' }, { label: 'Sign in', to: '/login' }, { label: 'Kitchen sink', to: '/kitchen-sink' }] },
     ],
     disclaimerTitle: 'Disclaimer',

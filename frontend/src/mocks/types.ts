@@ -78,6 +78,18 @@ export interface Message {
   rating?: 'up' | 'down';
   flagged?: boolean;
   verificationId?: string;
+  /** Legal domain predicted by the trained classifier (top 3, with probabilities). */
+  domain?: DomainPrediction[] | null;
+  /** True when the prediction agrees with a cited Act (or is very confident) — only then is it shown. */
+  domainConfirmed?: boolean;
+  /** How the sources were found: keyword (BM25) or hybrid (BM25 + E5 dense, rank fusion). */
+  retrieval?: 'hybrid' | 'keyword';
+}
+
+export interface DomainPrediction {
+  labelEn: string;
+  labelBn: string;
+  confidence: number;
 }
 
 export interface Conversation {

@@ -1,0 +1,255 @@
+{
+ "in_corpus": [
+  {
+   "id": "fir",
+   "en": "The police station refuses to take my complaint. How can I file an FIR?",
+   "bn": "থানা আমার অভিযোগ নিচ্ছে না। আমি কীভাবে এজাহার (এফআইআর) দায়ের করতে পারি?",
+   "gold": [
+    {
+     "act": 75,
+     "sections": [
+      "154"
+     ]
+    }
+   ],
+   "actTitle": "The Code of Criminal Procedure, 1898",
+   "domain": "Criminal Law & Policing"
+  },
+  {
+   "id": "bail",
+   "en": "Can I get bail after being arrested for a non-bailable offence?",
+   "bn": "অজামিনযোগ্য অপরাধে গ্রেপ্তার হলে কি জামিন পাওয়া যায়?",
+   "gold": [
+    {
+     "act": 75,
+     "sections": [
+      "496",
+      "497"
+     ]
+    }
+   ],
+   "actTitle": "The Code of Criminal Procedure, 1898",
+   "domain": "Criminal Law & Policing"
+  },
+  {
+   "id": "arrest",
+   "en": "When can the police arrest a person without a warrant?",
+   "bn": "কখন পুলিশ ওয়ারেন্ট ছাড়া কাউকে গ্রেপ্তার করতে পারে?",
+   "gold": [
+    {
+     "act": 75,
+     "sections": [
+      "54"
+     ]
+    }
+   ],
+   "actTitle": "The Code of Criminal Procedure, 1898",
+   "domain": "Criminal Law & Policing"
+  },
+  {
+   "id": "theft",
+   "en": "What is the punishment for theft?",
+   "bn": "চুরির শাস্তি কী?",
+   "gold": [
+    {
+     "act": 11,
+     "sections": [
+      "378",
+      "379"
+     ]
+    }
+   ],
+   "actTitle": "The Penal Code, 1860",
+   "domain": "Criminal Law & Policing"
+  },
+  {
+   "id": "cheating",
+   "en": "Someone cheated me and took my money. What is the punishment for cheating?",
+   "bn": "একজন আমাকে ঠকিয়ে টাকা নিয়েছে। প্রতারণার শাস্তি কী?",
+   "gold": [
+    {
+     "act": 11,
+     "sections": [
+      "417",
+      "420"
+     ]
+    }
+   ],
+   "actTitle": "The Penal Code, 1860",
+   "domain": "Criminal Law & Policing"
+  },
+  {
+   "id": "threat",
+   "en": "A person is threatening to harm me and my family. Is that a crime?",
+   "bn": "একজন আমাকে ও আমার পরিবারকে ক্ষতির হুমকি দিচ্ছে। এটা কি অপরাধ?",
+   "gold": [
+    {
+     "act": 11,
+     "sections": [
+      "503",
+      "506"
+     ]
+    }
+   ],
+   "actTitle": "The Penal Code, 1860",
+   "domain": "Criminal Law & Policing"
+  },
+  {
+   "id": "rent",
+   "en": "My landlord raised the rent without notice and wants to evict me.",
+   "bn": "বাড়িওয়ালা নোটিশ ছাড়া ভাড়া বাড়িয়েছেন এবং আমাকে উচ্ছেদ করতে চান।",
+   "gold": [
+    {
+     "act": 748,
+     "sections": [
+      "7",
+      "18"
+     ]
+    }
+   ],
+   "actTitle": "House Rent Control Act, 1991",
+   "domain": "Land & Property"
+  },
+  {
+   "id": "dowry",
+   "en": "My in-laws demand dowry. What does the law say?",
+   "bn": "শ্বশুরবাড়ির লোকজন যৌতুক দাবি করছে। আইনে কী বলে?",
+   "gold": [
+    {
+     "act": 1256,
+     "sections": [
+      "3",
+      "4"
+     ]
+    }
+   ],
+   "actTitle": "Dowry Prohibition Act, 2018",
+   "domain": "Family & Personal Law"
+  },
+  {
+   "id": "dv",
+   "en": "My husband beats me at home. What legal protection can I get?",
+   "bn": "স্বামী আমাকে ঘরে মারধর করে। আমি আইনি কী সুরক্ষা পেতে পারি?",
+   "gold": [
+    {
+     "act": 1063,
+     "sections": [
+      "11",
+      "13",
+      "14"
+     ]
+    }
+   ],
+   "actTitle": "Domestic Violence (Prevention and Protection) Act, 2010",
+   "domain": "Criminal Law & Policing"
+  },
+  {
+   "id": "talaq",
+   "en": "How does a Muslim man divorce his wife under the law (talaq)?",
+   "bn": "আইন অনুযায়ী তালাক দেওয়ার নিয়ম কী?",
+   "gold": [
+    {
+     "act": 305,
+     "sections": [
+      "7"
+     ]
+    }
+   ],
+   "actTitle": "The Muslim Family Laws Ordinance, 1961",
+   "domain": "Family & Personal Law"
+  },
+  {
+   "id": "dower",
+   "en": "What happens if the nikah nama does not say how the dower will be paid?",
+   "bn": "কাবিননামায় দেনমোহর পরিশোধের নিয়ম না থাকলে কী হবে?",
+   "gold": [
+    {
+     "act": 305,
+     "sections": [
+      "10"
+     ]
+    }
+   ],
+   "actTitle": "The Muslim Family Laws Ordinance, 1961",
+   "domain": "Family & Personal Law"
+  },
+  {
+   "id": "cheque",
+   "en": "The cheque I received from a customer bounced. What can I do?",
+   "bn": "আমার পাওয়া চেকটি ব্যাংকে ডিজঅনার হয়েছে। আমি কী করতে পারি?",
+   "gold": [
+    {
+     "act": 46,
+     "sections": [
+      "138"
+     ]
+    }
+   ],
+   "actTitle": "The Negotiable Instruments Act, 1881",
+   "domain": "Banking, Finance & Tax"
+  },
+  {
+   "id": "maternity",
+   "en": "Is a female worker entitled to paid maternity leave?",
+   "bn": "নারী শ্রমিকের মাতৃত্বকালীন ছুটি ও সুবিধা কি আইনে আছে?",
+   "gold": [
+    {
+     "act": 952,
+     "sections": [
+      "46"
+     ]
+    }
+   ],
+   "actTitle": "Bangladesh Labor Act, 2006",
+   "domain": "Labour & Employment"
+  },
+  {
+   "id": "mrp",
+   "en": "The shopkeeper charged more than the MRP printed on the product.",
+   "bn": "দোকানদার পণ্যের গায়ে লেখা এমআরপির চেয়ে বেশি দাম নিয়েছে।",
+   "gold": [
+    {
+     "act": 1014,
+     "sections": [
+      "40"
+     ]
+    }
+   ],
+   "actTitle": "Consumer Rights Protection Act, 2009",
+   "domain": "Commerce, Consumer & Companies"
+  },
+  {
+   "id": "heirs",
+   "en": "What share of my father's property does a daughter get under Muslim law?",
+   "bn": "মুসলিম আইনে বাবার সম্পত্তিতে মেয়ের অংশ কত?",
+   "gold": [
+    {
+     "act": 173,
+     "sections": [
+      "2"
+     ]
+    }
+   ],
+   "actTitle": "The Muslim Personal Law (Shariat) Application Act, 1937",
+   "domain": "Family & Personal Law"
+  }
+ ],
+ "out_of_corpus": [
+  {
+   "id": "weather",
+   "en": "What is the weather in Chattogram today?",
+   "bn": "আজ চট্টগ্রামের আবহাওয়া কেমন?"
+  },
+  {
+   "id": "cricket",
+   "en": "Who won the cricket match yesterday?",
+   "bn": "গতকালের ক্রিকেট ম্যাচ কে জিতেছে?"
+  },
+  {
+   "id": "foreign",
+   "en": "What is the penalty for drunk driving in California?",
+   "bn": "ক্যালিফোর্নিয়ায় মাতাল অবস্থায় গাড়ি চালানোর শাস্তি কী?"
+  }
+ ],
+ "source": "model/legal-ai-output-notebook.ipynb, section 14 (curated evaluation set)"
+}

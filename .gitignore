@@ -29,3 +29,10 @@ vite.config.ts.timestamp-*.mjs
 
 # backend runtime (dev mail outbox)
 backend/var/
+
+# model training outputs that are too large for GitHub (> 100 MB) or duplicated elsewhere.
+# The API uses the compact exports in backend/data/models/ (see model/README.md to regenerate them).
+model/legal_corpus.db
+model/legal_ai_outputs.zip
+model/outputs/e5_docs.npy
+model/outputs/artifacts/

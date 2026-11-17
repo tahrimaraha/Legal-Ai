@@ -1,0 +1,484 @@
+{
+ "generatedAt": "2026-11-17T16:18:15.679466+00:00",
+ "questions": 30,
+ "models": {
+  "loaded": true,
+  "classifier": "Logistic Regression (word + char TF-IDF)",
+  "dense": "intfloat/multilingual-e5-small",
+  "retrieval": "hybrid",
+  "errors": {}
+ },
+ "retrieval": {
+  "keyword": {
+   "all": {
+    "n": 30,
+    "Hit@1": 0.4666666666666667,
+    "Hit@3": 0.6666666666666666,
+    "Hit@4": 0.6666666666666666,
+    "Hit@5": 0.6666666666666666,
+    "Hit@10": 0.7,
+    "MRR@10": 0.5666666666666668,
+    "nDCG@10": 0.6003618651655104
+   },
+   "en": {
+    "n": 15,
+    "Hit@1": 0.6,
+    "Hit@3": 0.7333333333333333,
+    "Hit@4": 0.7333333333333333,
+    "Hit@5": 0.7333333333333333,
+    "Hit@10": 0.8,
+    "MRR@10": 0.6777777777777777,
+    "nDCG@10": 0.7078711129500626
+   },
+   "bn": {
+    "n": 15,
+    "Hit@1": 0.3333333333333333,
+    "Hit@3": 0.6,
+    "Hit@4": 0.6,
+    "Hit@5": 0.6,
+    "Hit@10": 0.6,
+    "MRR@10": 0.45555555555555555,
+    "nDCG@10": 0.4928526173809582
+   },
+   "msPerQuery": 97.7846792336398
+  },
+  "hybrid": {
+   "all": {
+    "n": 30,
+    "Hit@1": 0.4666666666666667,
+    "Hit@3": 0.6666666666666666,
+    "Hit@4": 0.7333333333333333,
+    "Hit@5": 0.7333333333333333,
+    "Hit@10": 0.7333333333333333,
+    "MRR@10": 0.5777777777777778,
+    "nDCG@10": 0.6172000628001358
+   },
+   "en": {
+    "n": 15,
+    "Hit@1": 0.6,
+    "Hit@3": 0.8,
+    "Hit@4": 0.8666666666666667,
+    "Hit@5": 0.8666666666666667,
+    "Hit@10": 0.8666666666666667,
+    "MRR@10": 0.7166666666666667,
+    "nDCG@10": 0.7548977212525178
+   },
+   "bn": {
+    "n": 15,
+    "Hit@1": 0.3333333333333333,
+    "Hit@3": 0.5333333333333333,
+    "Hit@4": 0.6,
+    "Hit@5": 0.6,
+    "Hit@10": 0.6,
+    "MRR@10": 0.4388888888888889,
+    "nDCG@10": 0.4795024043477539
+   },
+   "msPerQuery": 119.72099296302379
+  }
+ },
+ "perQuestion": [
+  {
+   "id": "fir",
+   "lang": "en",
+   "question": "The police station refuses to take my complaint. How can I file an FIR?",
+   "keyword": {
+    "rank": null,
+    "top": "The Code of Criminal Procedure, 1898 · 60"
+   },
+   "hybrid": {
+    "rank": null,
+    "top": "The Code of Criminal Procedure, 1898 · 60"
+   }
+  },
+  {
+   "id": "fir",
+   "lang": "bn",
+   "question": "থানা আমার অভিযোগ নিচ্ছে না। আমি কীভাবে এজাহার (এফআইআর) দায়ের করতে পারি?",
+   "keyword": {
+    "rank": null,
+    "top": "The Code of Criminal Procedure, 1898 · 54"
+   },
+   "hybrid": {
+    "rank": null,
+    "top": "The Code of Criminal Procedure, 1898 · 54"
+   }
+  },
+  {
+   "id": "bail",
+   "lang": "en",
+   "question": "Can I get bail after being arrested for a non-bailable offence?",
+   "keyword": {
+    "rank": 1,
+    "top": "The Code of Criminal Procedure, 1898 · 497"
+   },
+   "hybrid": {
+    "rank": 1,
+    "top": "The Code of Criminal Procedure, 1898 · 497"
+   }
+  },
+  {
+   "id": "bail",
+   "lang": "bn",
+   "question": "অজামিনযোগ্য অপরাধে গ্রেপ্তার হলে কি জামিন পাওয়া যায়?",
+   "keyword": {
+    "rank": null,
+    "top": "The Code of Criminal Procedure, 1898 · 54"
+   },
+   "hybrid": {
+    "rank": null,
+    "top": "The Code of Criminal Procedure, 1898 · 54"
+   }
+  },
+  {
+   "id": "arrest",
+   "lang": "en",
+   "question": "When can the police arrest a person without a warrant?",
+   "keyword": {
+    "rank": 2,
+    "top": "The Code of Criminal Procedure, 1898 · 60"
+   },
+   "hybrid": {
+    "rank": 2,
+    "top": "The Code of Criminal Procedure, 1898 · 60"
+   }
+  },
+  {
+   "id": "arrest",
+   "lang": "bn",
+   "question": "কখন পুলিশ ওয়ারেন্ট ছাড়া কাউকে গ্রেপ্তার করতে পারে?",
+   "keyword": {
+    "rank": 1,
+    "top": "The Code of Criminal Procedure, 1898 · 54"
+   },
+   "hybrid": {
+    "rank": 1,
+    "top": "The Code of Criminal Procedure, 1898 · 54"
+   }
+  },
+  {
+   "id": "theft",
+   "lang": "en",
+   "question": "What is the punishment for theft?",
+   "keyword": {
+    "rank": 1,
+    "top": "The Penal Code, 1860 · 379"
+   },
+   "hybrid": {
+    "rank": 1,
+    "top": "The Penal Code, 1860 · 379"
+   }
+  },
+  {
+   "id": "theft",
+   "lang": "bn",
+   "question": "চুরির শাস্তি কী?",
+   "keyword": {
+    "rank": null,
+    "top": "The Penal Code, 1860 · 398"
+   },
+   "hybrid": {
+    "rank": null,
+    "top": "The Penal Code, 1860 · 398"
+   }
+  },
+  {
+   "id": "cheating",
+   "lang": "en",
+   "question": "Someone cheated me and took my money. What is the punishment for cheating?",
+   "keyword": {
+    "rank": 1,
+    "top": "The Penal Code, 1860 · 417"
+   },
+   "hybrid": {
+    "rank": 2,
+    "top": "The Penal Code, 1860 · 419"
+   }
+  },
+  {
+   "id": "cheating",
+   "lang": "bn",
+   "question": "একজন আমাকে ঠকিয়ে টাকা নিয়েছে। প্রতারণার শাস্তি কী?",
+   "keyword": {
+    "rank": 2,
+    "top": "The Penal Code, 1860 · 468"
+   },
+   "hybrid": {
+    "rank": 2,
+    "top": "The Penal Code, 1860 · 468"
+   }
+  },
+  {
+   "id": "threat",
+   "lang": "en",
+   "question": "A person is threatening to harm me and my family. Is that a crime?",
+   "keyword": {
+    "rank": 1,
+    "top": "The Penal Code, 1860 · 506"
+   },
+   "hybrid": {
+    "rank": 1,
+    "top": "The Penal Code, 1860 · 506"
+   }
+  },
+  {
+   "id": "threat",
+   "lang": "bn",
+   "question": "একজন আমাকে ও আমার পরিবারকে ক্ষতির হুমকি দিচ্ছে। এটা কি অপরাধ?",
+   "keyword": {
+    "rank": 1,
+    "top": "The Penal Code, 1860 · 506"
+   },
+   "hybrid": {
+    "rank": 1,
+    "top": "The Penal Code, 1860 · 506"
+   }
+  },
+  {
+   "id": "rent",
+   "lang": "en",
+   "question": "My landlord raised the rent without notice and wants to evict me.",
+   "keyword": {
+    "rank": null,
+    "top": "House Rent Control Act, 1991 · 5"
+   },
+   "hybrid": {
+    "rank": null,
+    "top": "House Rent Control Act, 1991 · 5"
+   }
+  },
+  {
+   "id": "rent",
+   "lang": "bn",
+   "question": "বাড়িওয়ালা নোটিশ ছাড়া ভাড়া বাড়িয়েছেন এবং আমাকে উচ্ছেদ করতে চান।",
+   "keyword": {
+    "rank": null,
+    "top": "House Rent Control Act, 1991 · 5"
+   },
+   "hybrid": {
+    "rank": null,
+    "top": "House Rent Control Act, 1991 · 5"
+   }
+  },
+  {
+   "id": "dowry",
+   "lang": "en",
+   "question": "My in-laws demand dowry. What does the law say?",
+   "keyword": {
+    "rank": 1,
+    "top": "Dowry Prohibition Act, 2018 · 3"
+   },
+   "hybrid": {
+    "rank": 1,
+    "top": "Dowry Prohibition Act, 2018 · 3"
+   }
+  },
+  {
+   "id": "dowry",
+   "lang": "bn",
+   "question": "শ্বশুরবাড়ির লোকজন যৌতুক দাবি করছে। আইনে কী বলে?",
+   "keyword": {
+    "rank": 1,
+    "top": "Dowry Prohibition Act, 2018 · 3"
+   },
+   "hybrid": {
+    "rank": 1,
+    "top": "Dowry Prohibition Act, 2018 · 3"
+   }
+  },
+  {
+   "id": "dv",
+   "lang": "en",
+   "question": "My husband beats me at home. What legal protection can I get?",
+   "keyword": {
+    "rank": 1,
+    "top": "Domestic Violence (Prevention and Protection) Act, 2010 · 13"
+   },
+   "hybrid": {
+    "rank": 1,
+    "top": "Domestic Violence (Prevention and Protection) Act, 2010 · 14"
+   }
+  },
+  {
+   "id": "dv",
+   "lang": "bn",
+   "question": "স্বামী আমাকে ঘরে মারধর করে। আমি আইনি কী সুরক্ষা পেতে পারি?",
+   "keyword": {
+    "rank": 2,
+    "top": "Domestic Violence (Prevention and Protection) Act, 2010 · 30"
+   },
+   "hybrid": {
+    "rank": 2,
+    "top": "Domestic Violence (Prevention and Protection) Act, 2010 · 30"
+   }
+  },
+  {
+   "id": "talaq",
+   "lang": "en",
+   "question": "How does a Muslim man divorce his wife under the law (talaq)?",
+   "keyword": {
+    "rank": 2,
+    "top": "The Muslim Family Laws Ordinance, 1961 · 8"
+   },
+   "hybrid": {
+    "rank": 2,
+    "top": "The Muslim Family Laws Ordinance, 1961 · 8"
+   }
+  },
+  {
+   "id": "talaq",
+   "lang": "bn",
+   "question": "আইন অনুযায়ী তালাক দেওয়ার নিয়ম কী?",
+   "keyword": {
+    "rank": 3,
+    "top": "The Muslim Family Laws Ordinance, 1961 · 8"
+   },
+   "hybrid": {
+    "rank": 3,
+    "top": "The Muslim Family Laws Ordinance, 1961 · 8"
+   }
+  },
+  {
+   "id": "dower",
+   "lang": "en",
+   "question": "What happens if the nikah nama does not say how the dower will be paid?",
+   "keyword": {
+    "rank": 1,
+    "top": "The Muslim Family Laws Ordinance, 1961 · 10"
+   },
+   "hybrid": {
+    "rank": 1,
+    "top": "The Muslim Family Laws Ordinance, 1961 · 10"
+   }
+  },
+  {
+   "id": "dower",
+   "lang": "bn",
+   "question": "কাবিননামায় দেনমোহর পরিশোধের নিয়ম না থাকলে কী হবে?",
+   "keyword": {
+    "rank": null,
+    "top": "The Muslim Family Laws Ordinance, 1961 · 8"
+   },
+   "hybrid": {
+    "rank": null,
+    "top": "The Muslim Family Laws Ordinance, 1961 · 8"
+   }
+  },
+  {
+   "id": "cheque",
+   "lang": "en",
+   "question": "The cheque I received from a customer bounced. What can I do?",
+   "keyword": {
+    "rank": 1,
+    "top": "The Negotiable Instruments Act, 1881 · 138"
+   },
+   "hybrid": {
+    "rank": 1,
+    "top": "The Negotiable Instruments Act, 1881 · 138"
+   }
+  },
+  {
+   "id": "cheque",
+   "lang": "bn",
+   "question": "আমার পাওয়া চেকটি ব্যাংকে ডিজঅনার হয়েছে। আমি কী করতে পারি?",
+   "keyword": {
+    "rank": 1,
+    "top": "The Negotiable Instruments Act, 1881 · 138"
+   },
+   "hybrid": {
+    "rank": 1,
+    "top": "The Negotiable Instruments Act, 1881 · 138"
+   }
+  },
+  {
+   "id": "maternity",
+   "lang": "en",
+   "question": "Is a female worker entitled to paid maternity leave?",
+   "keyword": {
+    "rank": null,
+    "top": "Bangladesh Labor Act, 2006 · 11"
+   },
+   "hybrid": {
+    "rank": 1,
+    "top": "Bangladesh Labor Act, 2006 · 46"
+   }
+  },
+  {
+   "id": "maternity",
+   "lang": "bn",
+   "question": "নারী শ্রমিকের মাতৃত্বকালীন ছুটি ও সুবিধা কি আইনে আছে?",
+   "keyword": {
+    "rank": null,
+    "top": "Bangladesh Labor Act, 2006 · 11"
+   },
+   "hybrid": {
+    "rank": null,
+    "top": "Bangladesh Labor Act, 2006 · 119"
+   }
+  },
+  {
+   "id": "mrp",
+   "lang": "en",
+   "question": "The shopkeeper charged more than the MRP printed on the product.",
+   "keyword": {
+    "rank": 1,
+    "top": "Consumer Rights Protection Act, 2009 · 40"
+   },
+   "hybrid": {
+    "rank": 1,
+    "top": "Consumer Rights Protection Act, 2009 · 40"
+   }
+  },
+  {
+   "id": "mrp",
+   "lang": "bn",
+   "question": "দোকানদার পণ্যের গায়ে লেখা এমআরপির চেয়ে বেশি দাম নিয়েছে।",
+   "keyword": {
+    "rank": 1,
+    "top": "Consumer Rights Protection Act, 2009 · 40"
+   },
+   "hybrid": {
+    "rank": 1,
+    "top": "Consumer Rights Protection Act, 2009 · 40"
+   }
+  },
+  {
+   "id": "heirs",
+   "lang": "en",
+   "question": "What share of my father's property does a daughter get under Muslim law?",
+   "keyword": {
+    "rank": 6,
+    "top": "The Succession Act, 1925 · 51"
+   },
+   "hybrid": {
+    "rank": 4,
+    "top": "The Succession Act, 1925 · 51"
+   }
+  },
+  {
+   "id": "heirs",
+   "lang": "bn",
+   "question": "মুসলিম আইনে বাবার সম্পত্তিতে মেয়ের অংশ কত?",
+   "keyword": {
+    "rank": 2,
+    "top": "The Succession Act, 1925 · 53"
+   },
+   "hybrid": {
+    "rank": 4,
+    "top": "The Succession Act, 1925 · 53"
+   }
+  }
+ ],
+ "outOfScope": {
+  "questions": 6,
+  "rejected": 6,
+  "rate": 1.0
+ },
+ "domainOnQuestions": {
+  "questions": 30,
+  "top1": 0.7333333333333333,
+  "top3": 0.8,
+  "shown": 22,
+  "shownCorrect": 22,
+  "precisionWhenShown": 1.0
+ }
+}
