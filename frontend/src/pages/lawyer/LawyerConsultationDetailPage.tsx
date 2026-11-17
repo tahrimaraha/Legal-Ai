@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
+  Calendar,
+  Clock,
   Mail,
+  FileText,
   CheckCircle2,
   Lock,
 } from 'lucide-react';
+import { useLang } from '../../context/LanguageContext';
 import { getConsultationById, completeConsultation } from '../../lib/api';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { Timeline } from '../../components/ui/Timeline';
@@ -13,9 +17,12 @@ import { Button } from '../../components/ui/Button';
 import { Textarea } from '../../components/ui/Input';
 import { Skeleton, ErrorState } from '../../components/ui/EmptyState';
 import type { ConsultationRequest } from '../../mocks/types';
+import { formatSlot, isPastSlot } from '../../lib/slots';
 
 export default function LawyerConsultationDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const { lang, num } = useLang();
+  const navigate = useNavigate();
 
   const [consultation, setConsultation] = useState<ConsultationRequest | null>(null);
   const [loading, setLoading] = useState(true);
@@ -98,7 +105,9 @@ export default function LawyerConsultationDetailPage() {
               <div>
                 <span className="font-mono text-[10px] text-granite uppercase block">Confirmed Slot</span>
                 <span className="font-bold text-clay-deep font-mono">
-                  {consultation.scheduledSlot ? `${consultation.scheduledSlot.date} @ ${consultation.scheduledSlot.time}` : 'Unscheduled'}
+                  {consultation.scheduledSlot
+                    ? formatSlot(consultation.scheduledSlot, lang) + (isPastSlot(consultation.scheduledSlot) && consultation.status === 'scheduled' ? (lang === 'bn' ? ' (সময় পার হয়েছে)' : ' (time passed)') : '')
+                    : 'Unscheduled'}
                 </span>
               </div>
             </div>

@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Send, Paperclip, AlertCircle, UserCheck, Video, Flag } from 'lucide-react';
+import { Send, Lock, Paperclip, AlertCircle, UserCheck, Video, Flag } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
 import { listThreads, sendThreadMessage, reportThreadMessage } from '../../lib/api';
+import { useThreadSync } from '../../lib/useThreadSync';
 import { Button } from '../../components/ui/Button';
-import { MessageText } from '../../components/messaging/MessageText';
 import { Modal } from '../../components/ui/Modal';
 import { Select, Textarea } from '../../components/ui/Input';
 import { Skeleton, EmptyState } from '../../components/ui/EmptyState';
@@ -47,6 +47,8 @@ export default function CitizenMessagesPage() {
       setLoading(false);
     });
   }, [id]);
+
+  useThreadSync(activeThread?.id, setActiveThread, setThreads);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -223,7 +225,7 @@ export default function CitizenMessagesPage() {
                               : 'bg-white text-ink-soft border border-granite-soft shadow-sm'
                           }`}
                         >
-                          <MessageText text={m.text} />
+                          <p>{m.text}</p>
                           <span className="block font-mono text-[9px] text-granite text-right mt-1">
                             {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>

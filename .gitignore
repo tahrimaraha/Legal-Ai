@@ -26,3 +26,6 @@ vite.config.ts.timestamp-*.mjs
 
 # local claude settings
 .claude/
+
+# backend runtime (dev mail outbox)
+backend/var/

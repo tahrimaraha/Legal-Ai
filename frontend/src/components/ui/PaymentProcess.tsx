@@ -1,89 +1,42 @@
-import { useEffect, useState } from 'react';
-import { Smartphone, CheckCircle2, ArrowRight, AlertCircle, Copy, Check } from 'lucide-react';
+import { useState } from 'react';
+import { CreditCard, Smartphone, Clock, CheckCircle2, ArrowRight } from 'lucide-react';
 import { Button } from './Button';
 import { useLang } from '../../context/LanguageContext';
-import { ApiError, listPaymentMethods, type ManualPayment, type PaymentMethodOption, type WalletMethod } from '../../lib/api';
 
 interface PaymentProcessProps {
   amount: number;
-  /** Shown in the header, e.g. "Verification fee" / "Consultation fee". */
-  titleEn: string;
-  titleBn: string;
-  /** Sub-label next to the amount, e.g. "Standard" or "Urgent". */
-  tagEn?: string;
-  tagBn?: string;
-  /** Creates the paid-for request with the submitted payment. Throwing keeps the form open with the error. */
-  onSubmit: (payment: ManualPayment) => Promise<void>;
+  urgency: 'normal' | 'urgent';
+  onPaymentComplete: () => void;
   onCancel: () => void;
 }
 
-type Step = 'method' | 'details' | 'success';
+type PaymentStep = 'method' | 'account' | 'processing' | 'success';
 
-const METHOD_STYLE: Record<WalletMethod, { color: string; logo: string }> = {
-  bkash: { color: 'bg-pink-500', logo: '📱' },
-  nagad: { color: 'bg-orange-500', logo: '💳' },
-  rocket: { color: 'bg-purple-500', logo: '🚀' },
-};
+export function PaymentProcess({ amount, urgency, onPaymentComplete, onCancel }: PaymentProcessProps) {
+  const { lang } = useLang();
+  const [currentStep, setCurrentStep] = useState<PaymentStep>('method');
+  const [selectedMethod, setSelectedMethod] = useState<'bkash' | 'nagad' | 'rocket' | 'card'>('bkash');
+  const [accountNumber, setAccountNumber] = useState('');
+  const [transactionId, setTransactionId] = useState('');
 
-const PHONE_RE = /^01[3-9]\d{8}$/;
-const TRX_RE = /^[A-Za-z0-9]{6,20}$/;
+  const paymentMethods = [
+    { id: 'bkash', name: 'bKash', color: 'bg-pink-500', logo: '📱' },
+    { id: 'nagad', name: 'Nagad', color: 'bg-orange-500', logo: '💳' },
+    { id: 'rocket', name: 'Rocket', color: 'bg-purple-500', logo: '🚀' },
+    { id: 'card', name: 'Credit/Debit Card', color: 'bg-blue-500', logo: '💳' }
+  ];
 
-/** Bangla digits → ASCII, so numbers typed on a Bangla keyboard still validate. */
-const toAscii = (v: string) => v.replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d)));
-
-/**
- * Manual wallet payment: the citizen sends money with bKash/Nagad/Rocket "Send Money"
- * to the platform's number, then submits their number and the TrxID for an admin to check.
- */
-export function PaymentProcess({ amount, titleEn, titleBn, tagEn, tagBn, onSubmit, onCancel }: PaymentProcessProps) {
-  const { lang, num } = useLang();
-  const bn = lang === 'bn';
-  const [step, setStep] = useState<Step>('method');
-  const [methods, setMethods] = useState<PaymentMethodOption[] | null>(null);
-  const [loadError, setLoadError] = useState(false);
-  const [selected, setSelected] = useState<WalletMethod | null>(null);
-  const [payerNumber, setPayerNumber] = useState('');
-  const [trxId, setTrxId] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState('');
-  const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    listPaymentMethods()
-      .then((list) => {
-        setMethods(list);
-        if (list.length) setSelected(list[0].id);
-      })
-      .catch(() => setLoadError(true));
-  }, []);
-
-  const method = methods?.find((m) => m.id === selected);
-  const phoneValid = PHONE_RE.test(payerNumber);
-  const trxValid = TRX_RE.test(trxId);
-
-  const copyNumber = async () => {
-    if (!method) return;
-    try {
-      await navigator.clipboard.writeText(method.receiverNumber);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      /* clipboard unavailable — the number is visible anyway */
-    }
+  const handleMethodSelect = () => {
+    setCurrentStep('account');
   };
 
-  const handleSubmit = async () => {
-    if (!selected || !phoneValid || !trxValid) return;
-    setError('');
-    setSubmitting(true);
-    try {
-      await onSubmit({ method: selected, payerNumber, trxId: trxId.toUpperCase() });
-      setStep('success');
-    } catch (err) {
-      if (err instanceof ApiError) setError(bn ? err.messageBn : err.message);
-      else setError(bn ? 'জমা দেওয়া যায়নি। আবার চেষ্টা করুন।' : 'Could not submit. Please try again.');
-    } finally {
-      setSubmitting(false);
+  const handleAccountSubmit = () => {
+    if (accountNumber.length >= 10 && transactionId.length >= 6) {
+      setCurrentStep('processing');
+      setTimeout(() => {
+        setCurrentStep('success');
+        setTimeout(onPaymentComplete, 1500);
+      }, 2000);
     }
   };
 
@@ -91,156 +44,165 @@ export function PaymentProcess({ amount, titleEn, titleBn, tagEn, tagBn, onSubmi
     <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
       {/* Header */}
       <div className="bg-clay text-white p-4 text-center">
-        <h3 className="font-display text-lg font-bold">{bn ? titleBn : titleEn}</h3>
+        <h3 className="font-display text-lg font-bold">
+          {lang === 'bn' ? 'যাচাই ফি পেমেন্ট' : 'Verification Payment'}
+        </h3>
         <div className="mt-2 text-clay-tint">
-          <span className="text-2xl font-bold">৳{num(amount)}</span>
-          {(tagEn || tagBn) && <span className="ml-2 text-sm opacity-90">({bn ? tagBn : tagEn})</span>}
+          <span className="text-2xl font-bold">৳{amount}</span>
+          <span className="ml-2 text-sm opacity-90">
+            ({urgency === 'urgent' ? (lang === 'bn' ? 'জরুরি' : 'Urgent') : (lang === 'bn' ? 'সাধারণ' : 'Standard')})
+          </span>
         </div>
       </div>
 
-      {/* Step 1: choose wallet */}
-      {step === 'method' && (
+      {/* Payment Method Selection */}
+      {currentStep === 'method' && (
         <div className="p-6 space-y-4">
-          <h4 className="font-semibold text-ink">{bn ? 'পেমেন্ট পদ্ধতি নির্বাচন করুন' : 'Select Payment Method'}</h4>
-
-          {loadError && (
-            <p className="flex items-center gap-1.5 text-xs text-brick">
-              <AlertCircle className="h-3.5 w-3.5" />
-              {bn ? 'পেমেন্ট পদ্ধতি লোড করা যায়নি।' : 'Could not load payment methods.'}
-            </p>
-          )}
-          {methods === null && !loadError && (
-            <div className="animate-spin mx-auto w-6 h-6 border-2 border-clay-tint border-t-clay rounded-full" />
-          )}
-          {methods?.length === 0 && (
-            <p className="text-xs text-granite">
-              {bn ? 'এই মুহূর্তে কোনো পেমেন্ট পদ্ধতি চালু নেই।' : 'No payment methods are available right now.'}
-            </p>
-          )}
-
+          <h4 className="font-semibold text-ink mb-4">
+            {lang === 'bn' ? 'পেমেন্ট পদ্ধতি নির্বাচন করুন' : 'Select Payment Method'}
+          </h4>
+          
           <div className="space-y-3">
-            {methods?.map((m) => (
+            {paymentMethods.map((method) => (
               <button
-                key={m.id}
-                type="button"
-                onClick={() => setSelected(m.id)}
+                key={method.id}
+                onClick={() => setSelectedMethod(method.id as any)}
                 className={`w-full p-4 rounded-lg border-2 transition flex items-center gap-3 ${
-                  selected === m.id ? 'border-clay bg-clay-tint text-clay-deep' : 'border-granite hover:border-clay hover:bg-bone'
+                  selectedMethod === method.id
+                    ? 'border-clay bg-clay-tint text-clay-deep'
+                    : 'border-granite hover:border-clay hover:bg-bone'
                 }`}
               >
-                <div className={`w-10 h-10 rounded ${METHOD_STYLE[m.id].color} flex items-center justify-center text-white text-lg`}>
-                  {METHOD_STYLE[m.id].logo}
+                <div className={`w-10 h-10 rounded ${method.color} flex items-center justify-center text-white text-lg`}>
+                  {method.logo}
                 </div>
-                <span className="font-medium">{m.name}</span>
-                {selected === m.id && <CheckCircle2 className="h-5 w-5 text-clay-deep ml-auto" />}
+                <span className="font-medium">{method.name}</span>
+                {selectedMethod === method.id && (
+                  <CheckCircle2 className="h-5 w-5 text-clay-deep ml-auto" />
+                )}
               </button>
             ))}
           </div>
 
           <div className="pt-4 border-t border-granite-soft">
-            <Button variant="primary" size="md" onClick={() => setStep('details')} disabled={!method} className="w-full">
-              {bn ? 'পরবর্তী' : 'Continue'}
+            <Button variant="primary" size="md" onClick={handleMethodSelect} className="w-full">
+              {lang === 'bn' ? 'পরবর্তী' : 'Continue'}
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
             <Button variant="ghost" size="sm" onClick={onCancel} className="w-full mt-2">
-              {bn ? 'বাতিল' : 'Cancel'}
+              {lang === 'bn' ? 'বাতিল' : 'Cancel'}
             </Button>
           </div>
         </div>
       )}
 
-      {/* Step 2: send money, then enter number + TrxID */}
-      {step === 'details' && method && (
+      {/* Account & Transaction Details */}
+      {currentStep === 'account' && (
         <div className="p-6 space-y-4">
-          <div className="text-center space-y-1">
-            <Smartphone className="h-10 w-10 text-clay-deep mx-auto" />
-            <h4 className="font-semibold text-ink">{bn ? `${method.name} দিয়ে পেমেন্ট` : `Pay with ${method.name}`}</h4>
+          <div className="text-center space-y-2">
+            <Smartphone className="h-12 w-12 text-clay-deep mx-auto" />
+            <h4 className="font-semibold text-ink">
+              {lang === 'bn' ? 'পেমেন্ট বিবরণ দিন' : 'Enter Payment Details'}
+            </h4>
+            <p className="text-sm text-granite">
+              {lang === 'bn' 
+                ? `আপনার ${paymentMethods.find(m => m.id === selectedMethod)?.name} একাউন্ট নম্বর এবং লেনদেন আইডি দিন`
+                : `Enter your ${paymentMethods.find(m => m.id === selectedMethod)?.name} account number and transaction ID`}
+            </p>
           </div>
 
-          <ol className="rounded border border-granite-soft bg-bone p-3 text-xs text-ink-soft space-y-1.5 list-decimal list-inside">
-            <li>
-              {bn ? `আপনার ${method.name} অ্যাপ থেকে "Send Money" করুন` : `Open your ${method.name} app and choose "Send Money"`}
-            </li>
-            <li>
-              {bn ? 'এই নম্বরে ' : 'Send '}
-              <span className="font-bold text-ink">৳{num(amount)}</span>
-              {bn ? ' পাঠান:' : ' to:'}{' '}
-              <button
-                type="button"
-                onClick={copyNumber}
-                className="inline-flex items-center gap-1 font-mono font-bold text-ink tracking-wide hover:text-clay-deep"
-                title={bn ? 'কপি করুন' : 'Copy'}
-              >
-                {method.receiverNumber}
-                {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-              </button>
-            </li>
-            <li>{bn ? 'নিশ্চিতকরণ SMS থেকে ট্রানজেকশন আইডি (TrxID) নিচে লিখুন' : 'Enter the Transaction ID (TrxID) from the confirmation SMS below'}</li>
-          </ol>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-ink mb-2">
+                {lang === 'bn' ? 'একাউন্ট নম্বর' : 'Account Number'}
+              </label>
+              <input
+                type="text"
+                value={accountNumber}
+                onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, ''))}
+                placeholder={lang === 'bn' ? '০১৭XXXXXXXX' : '01XXXXXXXXX'}
+                className="w-full p-3 border border-granite rounded text-center font-mono text-lg tracking-wide focus:border-clay focus:ring-1 focus:ring-clay outline-none"
+                maxLength={15}
+              />
+              <p className="text-xs text-granite mt-1">
+                {lang === 'bn' ? 'সংখ্যা শুধুমাত্র' : 'Numbers only'}
+              </p>
+            </div>
 
-          <label className="block space-y-1">
-            <span className="text-xs font-semibold text-ink">
-              {bn ? `আপনার ${method.name} নম্বর` : `Your ${method.name} number`}
-            </span>
-            <input
-              type="tel"
-              inputMode="numeric"
-              value={payerNumber}
-              onChange={(e) => setPayerNumber(toAscii(e.target.value).replace(/\D/g, '').slice(0, 11))}
-              placeholder="01XXXXXXXXX"
-              className="w-full p-3 border border-granite rounded text-center font-mono text-lg tracking-wide focus:border-clay focus:ring-1 focus:ring-clay outline-none"
-            />
-            {payerNumber.length === 11 && !phoneValid && (
-              <span className="text-[11px] text-brick">{bn ? 'সঠিক মোবাইল নম্বর দিন' : 'Enter a valid mobile number'}</span>
-            )}
-          </label>
+            <div>
+              <label className="block text-sm font-medium text-ink mb-2">
+                {lang === 'bn' ? 'লেনদেন আইডি' : 'Transaction ID'}
+              </label>
+              <input
+                type="text"
+                value={transactionId}
+                onChange={(e) => setTransactionId(e.target.value.toUpperCase())}
+                placeholder={lang === 'bn' ? 'TXN1234567' : 'TXN1234567'}
+                className="w-full p-3 border border-granite rounded text-center font-mono text-lg tracking-wide focus:border-clay focus:ring-1 focus:ring-clay outline-none"
+                maxLength={20}
+              />
+              <p className="text-xs text-granite mt-1">
+                {lang === 'bn' ? 'পেমেন্ট সেবা প্রদানকারীর থেকে পান' : 'Get this from your payment provider'}
+              </p>
+            </div>
+          </div>
 
-          <label className="block space-y-1">
-            <span className="text-xs font-semibold text-ink">{bn ? 'ট্রানজেকশন আইডি (TrxID)' : 'Transaction ID (TrxID)'}</span>
-            <input
-              type="text"
-              value={trxId}
-              onChange={(e) => setTrxId(toAscii(e.target.value).replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 20))}
-              placeholder={bn ? 'যেমন 9AB3CD4EF5' : 'e.g. 9AB3CD4EF5'}
-              className="w-full p-3 border border-granite rounded text-center font-mono text-lg tracking-widest focus:border-clay focus:ring-1 focus:ring-clay outline-none"
-            />
-          </label>
-
-          {error && (
-            <p className="flex items-center gap-1.5 text-xs text-brick">
-              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-              {error}
+          <div className="bg-blue-50 border border-blue-200 rounded p-3">
+            <p className="text-xs text-blue-800">
+              {lang === 'bn' 
+                ? '📝 নিশ্চিত করুন যে একাউন্ট নম্বর এবং লেনদেন আইডি সঠিক, কারণ এটি যাচাই করা হবে'
+                : '📝 Ensure account number and transaction ID are correct - they will be verified'}
             </p>
-          )}
+          </div>
 
-          <div className="pt-2 space-y-2">
-            <Button
-              variant="primary"
-              size="md"
-              onClick={handleSubmit}
-              loading={submitting}
-              disabled={!phoneValid || !trxValid}
+          <div className="pt-4 space-y-2">
+            <Button 
+              variant="primary" 
+              size="md" 
+              onClick={handleAccountSubmit} 
               className="w-full"
+              disabled={accountNumber.length < 10 || transactionId.length < 6}
             >
-              {bn ? 'পেমেন্ট জমা দিন' : 'Submit Payment'}
+              {lang === 'bn' ? 'পেমেন্ট যাচাই করুন' : 'Verify Payment'}
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => setStep('method')} disabled={submitting} className="w-full">
-              {bn ? 'পিছনে' : 'Back'}
+            <Button variant="ghost" size="sm" onClick={() => setCurrentStep('method')} className="w-full">
+              {lang === 'bn' ? 'পিছনে' : 'Back'}
             </Button>
           </div>
         </div>
       )}
 
-      {step === 'success' && (
-        <div className="p-8 text-center space-y-3">
+      {/* Processing */}
+      {currentStep === 'processing' && (
+        <div className="p-8 text-center space-y-4">
+          <div className="w-16 h-16 bg-clay-tint rounded-full flex items-center justify-center mx-auto animate-pulse">
+            <CreditCard className="h-8 w-8 text-clay-deep" />
+          </div>
+          <h4 className="font-semibold text-ink">
+            {lang === 'bn' ? 'পেমেন্ট যাচাই হচ্ছে...' : 'Verifying Payment...'}
+          </h4>
+          <p className="text-sm text-granite">
+            {lang === 'bn' 
+              ? 'অনুগ্রহ করে অপেক্ষা করুন, আমরা আপনার লেনদেন যাচাই করছি'
+              : 'Please wait while we verify your transaction'}
+          </p>
+          <div className="animate-spin mx-auto w-6 h-6 border-2 border-clay-tint border-t-clay rounded-full"></div>
+        </div>
+      )}
+
+      {/* Success */}
+      {currentStep === 'success' && (
+        <div className="p-8 text-center space-y-4">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
             <CheckCircle2 className="h-10 w-10 text-green-600" />
           </div>
-          <h4 className="font-semibold text-ink">{bn ? 'পেমেন্ট জমা হয়েছে!' : 'Payment Submitted!'}</h4>
+          <h4 className="font-semibold text-ink">
+            {lang === 'bn' ? 'পেমেন্ট সফল!' : 'Payment Successful!'}
+          </h4>
           <p className="text-sm text-granite">
-            {bn
-              ? 'আপনার অনুরোধ পাঠানো হয়েছে। আমরা ট্রানজেকশন আইডি যাচাই করে নেব।'
-              : 'Your request has been sent. We will verify your transaction ID.'}
+            {lang === 'bn' 
+              ? 'আপনার যাচাইয়ের অনুরোধ পাঠানো হচ্ছে...'
+              : 'Submitting your verification request...'}
           </p>
         </div>
       )}

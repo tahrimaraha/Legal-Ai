@@ -6,6 +6,5 @@ export * from './verifications';
 export * from './consultations';
 export * from './documents';
 export * from './glossary';
-export * from './users';
 export * from './admin';
 export * from './notifications';

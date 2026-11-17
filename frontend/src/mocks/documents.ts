@@ -19,6 +19,7 @@ export const mockDraftTemplates: DraftTemplate[] = [
         hintEn: 'e.g. Mayesha, Flat 4B, House 12, Road 5, Dhanmondi, Dhaka',
         fieldType: 'text',
         placeholderBn: 'পূর্ণ নাম ও ঠিকানা',
+        placeholderEn: 'Full name and address',
       },
       {
         id: 'recipient_info',
@@ -28,6 +29,7 @@ export const mockDraftTemplates: DraftTemplate[] = [
         hintEn: 'The property owner or authorized attorney',
         fieldType: 'text',
         placeholderBn: 'বাড়িওয়ালার নাম ও ঠিকানা',
+        placeholderEn: 'Landlord’s name and address',
       },
       {
         id: 'tenancy_date',
@@ -45,6 +47,7 @@ export const mockDraftTemplates: DraftTemplate[] = [
         hintEn: 'e.g. 20000',
         fieldType: 'number',
         placeholderBn: 'যেমন: ২০০০০',
+        placeholderEn: 'e.g. 20000',
       },
       {
         id: 'dispute_details',
@@ -54,6 +57,7 @@ export const mockDraftTemplates: DraftTemplate[] = [
         hintEn: 'e.g. 30% sudden rent hike without written notice, threats of disconnecting utilities',
         fieldType: 'textarea',
         placeholderBn: 'ঘটনার সংক্ষিপ্ত বিবরণ...',
+        placeholderEn: 'Brief description of what happened...',
       },
       {
         id: 'notice_period_days',
@@ -88,6 +92,7 @@ export const mockDraftTemplates: DraftTemplate[] = [
         hintEn: 'Full legal name and active phone',
         fieldType: 'text',
         placeholderBn: 'নাম ও ফোন নম্বর',
+        placeholderEn: 'Name and phone number',
       },
       {
         id: 'shop_name_location',
@@ -97,6 +102,7 @@ export const mockDraftTemplates: DraftTemplate[] = [
         hintEn: 'Merchant name and exact store location',
         fieldType: 'text',
         placeholderBn: 'দোকানের নাম ও ঠিকানা',
+        placeholderEn: 'Shop name and address',
       },
       {
         id: 'offense_type',
@@ -120,6 +126,7 @@ export const mockDraftTemplates: DraftTemplate[] = [
         hintEn: 'Include invoice number and overcharged amount',
         fieldType: 'textarea',
         placeholderBn: 'যেমন: গত ১০ মে তারিখে ২০০ টাকার পণ্যে ২৩০ টাকা রাখা হয়েছে...',
+        placeholderEn: 'e.g. On 10 May I was charged 230 BDT for a product priced at 200 BDT...',
       },
     ],
   },
@@ -141,6 +148,7 @@ export const mockDraftTemplates: DraftTemplate[] = [
         hintEn: 'Local Thana jurisdiction',
         fieldType: 'text',
         placeholderBn: 'ভারপ্রাপ্ত কর্মকর্তা, ধানমন্ডি থানা, ঢাকা',
+        placeholderEn: 'Officer-in-Charge, Dhanmondi Police Station, Dhaka',
       },
       {
         id: 'applicant_details',
@@ -150,6 +158,7 @@ export const mockDraftTemplates: DraftTemplate[] = [
         hintEn: 'Exact NID details for police records',
         fieldType: 'text',
         placeholderBn: 'নাম, পিতার নাম ও এনআইডি নম্বর',
+        placeholderEn: 'Name, father’s name and NID number',
       },
       {
         id: 'offender_info',
@@ -159,6 +168,7 @@ export const mockDraftTemplates: DraftTemplate[] = [
         hintEn: 'Target URL, profile link or specify unknown',
         fieldType: 'text',
         placeholderBn: 'প্রোফাইল লিঙ্ক বা ফোন নম্বর',
+        placeholderEn: 'Profile link or phone number',
       },
       {
         id: 'incident_details',
@@ -168,6 +178,7 @@ export const mockDraftTemplates: DraftTemplate[] = [
         hintEn: 'Specific timestamps, messages and platforms',
         fieldType: 'textarea',
         placeholderBn: 'ঘটনার বিবরণ...',
+        placeholderEn: 'Description of the incident...',
       },
     ],
   },

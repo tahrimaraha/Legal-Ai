@@ -49,15 +49,6 @@ class VideoMeeting(UUIDPkMixin, TimestampMixin, Base):
         meeting_status_enum, nullable=False, default=MeetingStatus.SCHEDULED
     )
     recording_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-    title: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    # Shown to the host so they can share it; `passcode_hash` is what joins are checked against.
-    passcode: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
-    citizen_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
-    )
-    thread_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("message_threads.id", ondelete="SET NULL"), nullable=True
-    )
 
     participants: Mapped[list["MeetingParticipant"]] = relationship(
         back_populates="meeting", cascade="all, delete-orphan"

@@ -17,7 +17,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import ENUM, JSONB, UUID
+from sqlalchemy.dialects.postgresql import ENUM, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDPkMixin
@@ -74,14 +74,6 @@ class Consultation(UUIDPkMixin, TimestampMixin, Base):
     )
     citizen_rating: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
     citizen_review: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    # [{date, time}] as proposed by the citizen; scheduled_start is the agreed one.
-    preferred_slots: Mapped[list[dict]] = mapped_column(JSONB, nullable=False, default=list)
-    attachments: Mapped[list[dict]] = mapped_column(JSONB, nullable=False, default=list)
-    # [{status, timestamp, note?}] in frontend status vocabulary.
-    timeline: Mapped[list[dict]] = mapped_column(JSONB, nullable=False, default=list)
-    lawyer_private_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    payment_processed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
 
 class MessageThread(UUIDPkMixin, TimestampMixin, Base):
@@ -114,8 +106,6 @@ class MessageThread(UUIDPkMixin, TimestampMixin, Base):
     )
     citizen_unread_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     lawyer_unread_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    context_title_bn: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    context_title_en: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
     messages: Mapped[list["ThreadMessage"]] = relationship(
         back_populates="thread", cascade="all, delete-orphan", order_by="ThreadMessage.created_at"

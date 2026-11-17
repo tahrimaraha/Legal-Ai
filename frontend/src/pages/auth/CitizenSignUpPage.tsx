@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Lock, Mail, Phone, User } from 'lucide-react';
+import { ScalesDivider } from '../../components/ui/ScalesDivider';
+import { PasswordChecklist } from '../../components/ui/PasswordChecklist';
+import { passwordIsValid } from '../../lib/password';
 import { useLang } from '../../context/LanguageContext';
 import { ApiError, registerCitizen } from '../../lib/api';
 import { Input } from '../../components/ui/Input';
@@ -24,17 +27,16 @@ export default function CitizenSignUpPage() {
       setError(lang === 'bn' ? 'সকল আবশ্যক তথ্য পূরণ করুন' : 'Please fill in all required fields');
       return;
     }
-    if (password.length < 8) {
-      setError(lang === 'bn' ? 'পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে' : 'Password must be at least 8 characters');
+    if (!passwordIsValid(password, email)) {
+      setError(lang === 'bn' ? 'পাসওয়ার্ডটি নিচের সব শর্ত পূরণ করেনি' : 'Your password doesn’t meet all the requirements below');
       return;
     }
     setLoading(true);
     setError('');
     try {
-      const res = await registerCitizen({ name, email, phone, district, password });
-      navigate(`/verify-email?${new URLSearchParams({ email: res.user.email ?? email })}`, {
-        state: { devCode: res.devVerificationCode ?? null },
-      });
+      const res = await registerCitizen({ name: name.trim(), email: email.trim(), phone, district, password });
+      // The account works once the emailed link is opened.
+      navigate('/verify-email', { state: { email: res.email } });
     } catch (err) {
       if (err instanceof ApiError) {
         setError(lang === 'bn' ? err.messageBn : err.message);
@@ -50,15 +52,16 @@ export default function CitizenSignUpPage() {
 
   return (
     <div className="space-y-6 font-body">
-      <div>
+      <div className="text-center">
         <h1 className="font-display text-2xl font-bold text-ink">
-          {lang === 'bn' ? 'নাগরিক অ্যাকাউন্ট তৈরি' : 'Citizen Registration'}
+          {lang === 'bn' ? 'নাগরিক অ্যাকাউন্ট তৈরি' : 'Create Your Account'}
         </h1>
-        <p className="mt-1 text-xs text-granite">
+        <p className="mt-2 text-sm text-[#8a6a55]">
           {lang === 'bn'
             ? 'বিনামূল্যে আইনি প্রশ্ন ও নোটিশ ড্রাফট সেবা পেতে তথ্য প্রদান করুন'
-            : 'Create your free account to access cited legal information'}
+            : 'Join Legal AI and get cited legal information, free'}
         </p>
+        <ScalesDivider className="mt-5" />
       </div>
 
       {error && <div className="p-2.5 rounded bg-brick/10 border border-brick/30 text-xs text-brick font-medium">{error}</div>}
@@ -67,7 +70,9 @@ export default function CitizenSignUpPage() {
         <Input
           type="text"
           label={lang === 'bn' ? 'আপনার পূর্ণ নাম' : 'Full Name'}
-          placeholder="e.g. Mayesha"
+          placeholder={lang === 'bn' ? 'আপনার পূর্ণ নাম লিখুন' : 'Enter your full name'}
+          icon={User}
+          autoComplete="name"
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
@@ -77,6 +82,8 @@ export default function CitizenSignUpPage() {
           type="email"
           label={lang === 'bn' ? 'ইমেইল ঠিকানা' : 'Email Address'}
           placeholder="name@example.com"
+          icon={Mail}
+          autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
@@ -87,15 +94,18 @@ export default function CitizenSignUpPage() {
             type="tel"
             label={lang === 'bn' ? 'মোবাইল নম্বর (ঐচ্ছিক)' : 'Mobile (Optional)'}
             placeholder="+880 17..."
+            icon={Phone}
+            autoComplete="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
           />
 
           <div className="space-y-1">
-            <label className="block text-xs font-semibold uppercase text-ink-soft">
+            <label className="block text-xs font-semibold uppercase text-ink-soft" htmlFor="citizen-district">
               {lang === 'bn' ? 'জেলা' : 'District'}
             </label>
             <select
+              id="citizen-district"
               value={district}
               onChange={(e) => setDistrict(e.target.value)}
               className="w-full rounded border border-granite bg-white px-3 py-2 text-sm text-ink focus:border-clay focus:outline-none"
@@ -110,11 +120,14 @@ export default function CitizenSignUpPage() {
         <Input
           type="password"
           label={lang === 'bn' ? 'পাসওয়ার্ড তৈরি করুন' : 'Create Password'}
-          placeholder="••••••••"
+          placeholder={lang === 'bn' ? 'কমপক্ষে ৮ অক্ষর' : 'At least 8 characters'}
+          icon={Lock}
+          autoComplete="new-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
         />
+        <PasswordChecklist password={password} email={email} lang={lang} />
 
         <Button size="lg" variant="primary" type="submit" loading={loading} className="w-full justify-center mt-2">
           <span>{lang === 'bn' ? 'নিবন্ধন সম্পন্ন করুন' : 'Create Account'}</span>
@@ -122,8 +135,8 @@ export default function CitizenSignUpPage() {
         </Button>
       </form>
 
-      <div className="text-center text-xs text-ink-soft">
-        {lang === 'bn' ? 'ইতিমধ্যে অ্যাকাউন্ট আছে? ' : 'Already registered? '}
+      <div className="border-t border-[#e7d6c6] pt-5 text-center text-sm text-ink-soft">
+        {lang === 'bn' ? 'ইতিমধ্যে অ্যাকাউন্ট আছে? ' : 'Already have an account? '}
         <Link to="/signin" className="font-semibold text-clay-deep hover:underline">
           {lang === 'bn' ? 'সাইন ইন করুন' : 'Sign in'}
         </Link>

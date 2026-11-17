@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
-import { Upload, RefreshCw, AlertTriangle, CheckCircle2, FileText } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Database, Upload, RefreshCw, AlertTriangle, CheckCircle2, FileText, Trash2 } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
-import { ApiError, listCorpus, listStatutes, rebuildIndex, uploadCorpusDocument } from '../../lib/api';
+import { ApiError, listCorpus, rebuildIndex, uploadCorpusDocument } from '../../lib/api';
+import { StatusBadge } from '../../components/ui/StatusBadge';
 import { Button } from '../../components/ui/Button';
 import { Skeleton } from '../../components/ui/EmptyState';
-import type { CorpusDocument, Statute } from '../../mocks/types';
+import type { CorpusDocument } from '../../mocks/types';
 
 export default function AdminCorpusManager() {
   const { lang, num } = useLang();
@@ -13,54 +14,44 @@ export default function AdminCorpusManager() {
   const [rebuilding, setRebuilding] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
-  const toastTimer = useRef<ReturnType<typeof setTimeout>>();
-  const [statutes, setStatutes] = useState<Statute[]>([]);
-  const [statuteId, setStatuteId] = useState('');
-  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     listCorpus().then((data) => {
       setDocuments(data);
       setLoading(false);
     });
-    listStatutes().then((data) => {
-      setStatutes(data);
-      setStatuteId(data[0]?.id ?? '');
-    });
   }, []);
-
-  // One timer, so a new toast isn't cleared early by the previous toast's timeout.
-  const showToast = (message: string) => {
-    clearTimeout(toastTimer.current);
-    setToastMessage(message);
-    toastTimer.current = setTimeout(() => setToastMessage(''), 4000);
-  };
 
   const handleRebuild = async () => {
     setRebuilding(true);
     try {
       const res = await rebuildIndex();
-      showToast(res.message);
+      setToastMessage(res.message);
+      setTimeout(() => setToastMessage(''), 4000);
+    } catch (err) {
+      setToastMessage(err instanceof ApiError ? (lang === 'bn' ? err.messageBn : err.message) : 'Rebuild failed');
+      setTimeout(() => setToastMessage(''), 8000);
     } finally {
       setRebuilding(false);
     }
   };
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file || !statuteId) return;
+  const handleSimulatedUpload = async () => {
+    const fileName = prompt('Enter PDF file name to ingest into vector corpus:', 'Labour_Act_2006_Codified.pdf');
+    if (!fileName) return;
     setUploading(true);
     try {
-      const newDoc = await uploadCorpusDocument(file, statuteId);
+      const newDoc = await uploadCorpusDocument({
+        name: fileName,
+        statuteId: 'labour-act-2006',
+        sizeMb: 3.4,
+      });
       setDocuments((prev) => [newDoc, ...prev]);
-      showToast(
-        newDoc.status === 'failed'
-          ? `${file.name}: ${newDoc.error}`
-          : `${file.name} ingested into ${newDoc.chunks} text chunks.`,
-      );
+      setToastMessage(`Document ${fileName} ingested into vector store.`);
+      setTimeout(() => setToastMessage(''), 3000);
     } catch (err) {
-      showToast(err instanceof ApiError ? err.message : `Upload of ${file.name} failed.`);
+      setToastMessage(err instanceof ApiError ? (lang === 'bn' ? err.messageBn : err.message) : 'Upload failed');
+      setTimeout(() => setToastMessage(''), 8000);
     } finally {
       setUploading(false);
     }
@@ -81,20 +72,7 @@ export default function AdminCorpusManager() {
         </div>
 
         <div className="flex items-center gap-2">
-          <select
-            aria-label={lang === 'bn' ? 'আইন নির্বাচন করুন' : 'Statute for upload'}
-            value={statuteId}
-            onChange={(e) => setStatuteId(e.target.value)}
-            className="rounded border border-granite-soft bg-white p-1.5 text-xs text-ink focus:border-clay focus:outline-none"
-          >
-            {statutes.map((s) => (
-              <option key={s.id} value={s.id}>
-                {lang === 'bn' ? s.titleBn : s.titleEn}
-              </option>
-            ))}
-          </select>
-          <input ref={fileRef} type="file" accept="application/pdf,.pdf" className="hidden" onChange={handleUpload} />
-          <Button size="sm" variant="secondary" onClick={() => fileRef.current?.click()} loading={uploading}>
+          <Button size="sm" variant="secondary" onClick={handleSimulatedUpload} loading={uploading}>
             <Upload className="mr-1.5 h-3.5 w-3.5" />
             <span>Upload Statute PDF</span>
           </Button>
@@ -131,7 +109,7 @@ export default function AdminCorpusManager() {
           ))}
         </div>
       ) : (
-        <div className="border border-granite rounded bg-white shadow-sm overflow-hidden">
+        <div className="border border-granite rounded bg-white shadow-sm overflow-x-auto">
           <table className="w-full text-xs text-left border-collapse">
             <thead className="bg-bone-deep border-b border-granite font-mono uppercase text-clay-deep">
               <tr>

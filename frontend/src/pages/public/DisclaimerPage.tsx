@@ -1,4 +1,4 @@
-import { ShieldAlert } from 'lucide-react';
+import { AlertTriangle, ShieldAlert } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
 
 export default function DisclaimerPage() {

@@ -1,8 +1,10 @@
 /**
- * The single seam between this frontend and the Python RAG / FastAPI backend.
- * Every function below returns the exact shape specified in Appendix A, fetched
- * from `import.meta.env.VITE_API_URL`.
+ * The single seam between this frontend and the FastAPI backend (`/api/v1`).
+ * Every function returns the shapes in `mocks/types.ts`; pages never call `fetch` directly.
+ * Static reference content (statutes, glossary, document templates) still ships with the frontend.
  */
+import { statutesData } from '../data/statutes';
+import { mockDraftTemplates, mockGlossary } from '../mocks';
 import type {
   AdminStats,
   AppNotification,
@@ -28,17 +30,20 @@ import type {
   VerificationVerdict,
   VerdictType,
 } from '../mocks/types';
+import { getSessionToken, getSessionUserId, replaceSessionToken } from './session';
 
-// --- BACKEND TRANSPORT ---
-// Every function below talks to FastAPI (docs/api-contract.md).
+const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000/api/v1';
+// --- HTTP CLIENT & AUTH API ---
+
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '/api/v1'; // relative: Vite proxies /api to the backend in dev, so phones on the LAN work too
 
 /** Thrown by `apiRequest` for any non-2xx response; carries the backend's bilingual error envelope. */
 export class ApiError extends Error {
   status: number;
   code: string;
   messageBn: string;
+  /** Extra server info, e.g. `retryAfter` (seconds) on 429, `attemptsLeft` on a wrong code. */
   details: Record<string, unknown>;
 
   constructor(status: number, code: string, messageEn: string, messageBn: string, details: Record<string, unknown> = {}) {
@@ -51,77 +56,103 @@ export class ApiError extends Error {
   }
 }
 
-/** Fired when the backend rejects the stored token; RoleContext logs out. */
-export const UNAUTHORIZED_EVENT = 'legal-ai:unauthorized';
-
-/** Same key RoleContext stores the session token under. */
-const TOKEN_KEY = 'legal_ai_token';
 
 function storedToken(): string | null {
-  try {
-    return localStorage.getItem(TOKEN_KEY);
-  } catch {
-    return null;
-  }
+  return getSessionToken();
 }
 
-async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = storedToken();
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers || {}),
-    },
+/** WebSocket URL + auth token for a meeting's live video signalling channel. */
+export function meetingSignal(code: string): { url: string; token: string } {
+  const base = new URL(API_BASE, window.location.href);
+  base.protocol = base.protocol === 'https:' ? 'wss:' : 'ws:';
+  return {
+    url: `${base.toString().replace(/\/$/, '')}/meetings/${encodeURIComponent(code.trim().toLowerCase())}/ws`,
+    token: storedToken() || '',
+  };
+}
+
+/** Fired when this tab's session can't be renewed; RoleContext signs the tab out. */
+export const SESSION_ENDED_EVENT = 'legal-ai:session-ended';
+
+let refreshing: Promise<boolean> | null = null;
+
+/**
+ * Renew this tab's access token from its HttpOnly refresh cookie. One renewal at a time per tab;
+ * if another tab of the same account rotated the cookie a moment earlier, retry once.
+ */
+function renewSession(): Promise<boolean> {
+  const userId = getSessionUserId();
+  if (!userId) return Promise.resolve(false);
+  refreshing ??= (async () => {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await fetch(`${API_BASE}/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ userId }),
+        });
+        if (res.ok) {
+          const data = (await res.json()) as { token: string; user: User };
+          if (data.user?.id !== userId) return false;
+          replaceSessionToken(data.token);
+          return true;
+        }
+      } catch {
+        /* network blip: retry once */
+      }
+      await new Promise((r) => setTimeout(r, 400));
+    }
+    return false;
+  })().finally(() => {
+    refreshing = null;
   });
+  return refreshing;
+}
+
+async function toApiError(res: Response): Promise<ApiError> {
   const data = await res.json().catch(() => ({}));
-  if (res.status === 401 && token) {
-    window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
-  }
-  if (!res.ok) {
-    const err = data?.error ?? {};
+  const err = data?.error ?? {};
+  return new ApiError(
+    res.status,
+    err.code ?? 'UNKNOWN_ERROR',
+    err.message_en ?? 'Something went wrong. Please try again.',
+    err.message_bn ?? 'কিছু একটা সমস্যা হয়েছে। আবার চেষ্টা করুন।',
+    err.details ?? {},
+  );
+}
+
+/** Calls the backend with the signed-in user's token; renews an expired session once and retries. */
+async function apiRequest<T>(path: string, options: RequestInit = {}, retried = false): Promise<T> {
+  const token = storedToken();
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      credentials: 'same-origin',
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(options.headers || {}),
+      },
+    });
+  } catch {
     throw new ApiError(
-      res.status,
-      err.code ?? 'UNKNOWN_ERROR',
-      err.message_en ?? 'Something went wrong. Please try again.',
-      err.message_bn ?? 'কিছু একটা সমস্যা হয়েছে। আবার চেষ্টা করুন।',
-      err.details ?? {},
+      0,
+      'NETWORK_ERROR',
+      'Could not reach the server. Check your connection and try again.',
+      'সার্ভারে সংযোগ করা যায়নি। সংযোগ দেখে আবার চেষ্টা করুন।',
     );
   }
-  return data as T;
-}
-
-/** For lookups whose callers treat "not found" as `undefined` rather than an error. */
-async function orUndefined<T>(request: Promise<T>): Promise<T | undefined> {
-  try {
-    return await request;
-  } catch (err) {
-    if (err instanceof ApiError && err.status === 404) return undefined;
-    throw err;
+  if (res.ok) return (await res.json().catch(() => ({}))) as T;
+  const error = await toApiError(res);
+  // Sign-in / recovery endpoints don't use the session, so a 401 there is a real answer.
+  const sessionless = /^\/auth\/(login|register|refresh|logout|password|verify-email)/.test(path);
+  if (res.status === 401 && token && !retried && !sessionless) {
+    if (await renewSession()) return apiRequest<T>(path, options, true);
+    window.dispatchEvent(new Event(SESSION_ENDED_EVENT));
   }
-}
-
-const qs = (params: Record<string, string | number | boolean | undefined>) => {
-  const entries = Object.entries(params).filter(([, v]) => v !== undefined && v !== '');
-  return entries.length ? `?${new URLSearchParams(entries.map(([k, v]) => [k, String(v)]))}` : '';
-};
-
-function authHeader(token: string): HeadersInit {
-  return { Authorization: `Bearer ${token}` };
-}
-
-/** Slim server-side shape returned by /auth/register/lawyer — not the rich directory-listing LawyerProfile. */
-export interface LawyerRegistrationProfile {
-  userId: string;
-  barEnrolmentNo: string;
-  enrolmentYear: number | null;
-  district: string | null;
-  practiceAreas: string[];
-  startingFeeBdt: number | null;
-  bio: string | null;
-  approvalStatus: string;
-  yearsOfExperience: number | null;
+  throw error;
 }
 
 export async function loginUser(email: string, password: string): Promise<{ user: User; token: string }> {
@@ -137,7 +168,7 @@ export async function registerCitizen(data: {
   phone?: string;
   district?: string;
   password: string;
-}): Promise<{ user: User; token: string; devVerificationCode?: string | null }> {
+}): Promise<{ status: 'verification_required'; email: string }> {
   return apiRequest('/auth/register/citizen', {
     method: 'POST',
     body: JSON.stringify(data),
@@ -157,127 +188,169 @@ export async function registerLawyer(data: {
   bio: string;
   licenseDocumentUrl: string;
   licenseDocumentName: string;
-}): Promise<{ user: User; lawyerProfile: LawyerRegistrationProfile; token: string; devVerificationCode?: string | null }> {
+}): Promise<{ status: 'verification_required'; email: string }> {
   return apiRequest('/auth/register/lawyer', {
     method: 'POST',
     body: JSON.stringify(data),
   });
 }
 
-export async function getCurrentUser(token: string): Promise<User> {
-  return apiRequest('/auth/me', { headers: authHeader(token) });
+export async function getCurrentUser(): Promise<User> {
+  return apiRequest('/auth/me');
 }
 
-export async function verifyEmailCode(code: string, token: string): Promise<{ ok: boolean }> {
-  return apiRequest('/auth/verify-email', {
+/** End this tab's session on the server (revokes its refresh cookie). Never throws. */
+export async function logoutSession(userId: string | null): Promise<void> {
+  if (!userId) return;
+  await fetch(`${API_BASE}/auth/logout`, {
     method: 'POST',
-    headers: authHeader(token),
-    body: JSON.stringify({ code }),
-  });
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
+    body: JSON.stringify({ userId }),
+  }).catch(() => undefined);
 }
 
-/** Public: verifies an unverified account by email + code and signs it in. */
-export async function confirmEmailVerification(email: string, code: string): Promise<{ user: User; token: string }> {
-  return apiRequest('/auth/verify-email/confirm', {
-    method: 'POST',
-    body: JSON.stringify({ email, code }),
-  });
+// --- EMAIL VERIFICATION & PASSWORD RESET ---
+
+/** Open-the-link step: confirms the email for the account in the link. */
+export async function confirmEmailVerification(
+  userId: string,
+  token: string,
+): Promise<{ status: 'verified' | 'already_verified'; email: string | null }> {
+  return apiRequest('/auth/verify-email/confirm', { method: 'POST', body: JSON.stringify({ userId, token }) });
 }
 
-/** Public: sends a fresh verification code. `devVerificationCode` is only set in local dev. */
-export async function resendVerificationCode(email: string): Promise<{ ok: boolean; devVerificationCode?: string | null }> {
-  return apiRequest('/auth/resend-verification', {
-    method: 'POST',
-    body: JSON.stringify({ email }),
-  });
+/** Email a new verification link (same answer whether or not the address is registered). */
+export async function resendVerificationEmail(email: string): Promise<{ ok: boolean }> {
+  return apiRequest('/auth/verify-email/resend', { method: 'POST', body: JSON.stringify({ email }) });
 }
 
-/** Emails a 6-digit reset code (always ok, even for unknown emails). `devVerificationCode` is dev-only. */
-export async function sendForgotPassword(email: string): Promise<{ ok: boolean; devVerificationCode?: string | null }> {
-  return apiRequest('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) });
+/** Email a 6-digit password reset code (same answer whether or not the address is registered). */
+export async function requestPasswordReset(email: string): Promise<{ ok: boolean }> {
+  return apiRequest('/auth/password/forgot', { method: 'POST', body: JSON.stringify({ email }) });
 }
 
-export async function resetPassword(email: string, code: string, newPassword: string): Promise<{ ok: boolean }> {
-  return apiRequest('/auth/reset-password', {
-    method: 'POST',
-    body: JSON.stringify({ email, code, newPassword }),
-  });
+/** Check the emailed code; returns a short-lived, single-use pass for setting the new password. */
+export async function verifyPasswordResetCode(
+  email: string,
+  code: string,
+): Promise<{ resetToken: string; expiresInMinutes: number }> {
+  return apiRequest('/auth/password/verify-code', { method: 'POST', body: JSON.stringify({ email, code }) });
 }
 
-/** Signed-in users only; checks the current password first. */
-export async function changePassword(currentPassword: string, newPassword: string): Promise<{ ok: boolean }> {
-  return apiRequest('/auth/change-password', {
-    method: 'POST',
-    body: JSON.stringify({ currentPassword, newPassword }),
-  });
-}
-
-// --- MANUAL WALLET PAYMENTS ---
-
-export type WalletMethod = 'bkash' | 'nagad' | 'rocket';
-
-/** What the citizen submits after sending money with the wallet's "Send Money". */
-export interface ManualPayment {
-  method: WalletMethod;
-  payerNumber: string;
-  trxId: string;
-}
-
-export interface PaymentMethodOption {
-  id: WalletMethod;
-  name: string;
-  /** The platform's wallet number to send money to. */
-  receiverNumber: string;
-}
-
-export interface AdminPayment {
-  id: string;
-  purpose: 'verification' | 'consultation' | 'document';
-  referenceId: string;
-  payerId: string;
-  payerName: string;
-  amountBdt: number;
-  method: string;
-  payerNumber: string | null;
-  trxId: string | null;
-  status: 'pending' | 'confirmed' | 'rejected';
-  createdAt: string;
-}
-
-export async function listPaymentMethods(): Promise<PaymentMethodOption[]> {
-  return apiRequest('/payments/methods');
+export async function resetPassword(resetToken: string, newPassword: string): Promise<{ ok: boolean }> {
+  return apiRequest('/auth/password/reset', { method: 'POST', body: JSON.stringify({ resetToken, newPassword }) });
 }
 
 // --- STATUTES & GLOSSARY API ---
 
 export async function listStatutes(): Promise<Statute[]> {
-  return apiRequest('/statutes');
+  await delay(150);
+  return statutesData;
 }
 
 export async function getStatuteBySlug(slug: string): Promise<Statute | undefined> {
-  return orUndefined(apiRequest(`/statutes/${encodeURIComponent(slug)}`));
+  await delay(120);
+  return statutesData.find((s) => s.slug === slug || s.id === slug);
 }
 
 export async function searchGlossary(query?: string): Promise<GlossaryTerm[]> {
-  return apiRequest(`/glossary${qs({ q: query?.trim() })}`);
+  await delay(180);
+  const q = (query || '').trim().toLowerCase();
+  if (!q) return mockGlossary;
+  return mockGlossary.filter(
+    (g) =>
+      g.termBn.toLowerCase().includes(q) ||
+      g.termEn.toLowerCase().includes(q) ||
+      g.plainBn.toLowerCase().includes(q) ||
+      g.plainEn.toLowerCase().includes(q) ||
+      g.section.toLowerCase().includes(q),
+  );
 }
 
+const post = <T>(path: string, body?: unknown) =>
+  apiRequest<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) });
+
+/** `undefined` instead of an error when the item does not exist (or is not visible to this user). */
+async function orUndefined<T>(request: Promise<T>): Promise<T | undefined> {
+  try {
+    return await request;
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return undefined;
+    throw err;
+  }
+}
+
+
+
 // --- CONVERSATIONS & CHAT API ---
+// Chats are saved per account on the backend; signed-out visitors can still ask, but nothing is saved.
 
 export async function listConversations(): Promise<Conversation[]> {
+  if (!storedToken()) return [];
   return apiRequest('/conversations');
 }
 
 export async function getConversation(id: string): Promise<Conversation | undefined> {
-  return orUndefined(apiRequest(`/conversations/${encodeURIComponent(id)}`));
+  if (!storedToken()) return undefined;
+  return orUndefined(apiRequest<Conversation>(`/conversations/${encodeURIComponent(id)}`));
 }
 
 export async function deleteConversation(id: string): Promise<{ ok: boolean }> {
   return apiRequest(`/conversations/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
-export async function askQuestion(question: string, conversationId?: string): Promise<{ message: Message; conversationId: string }> {
-  return apiRequest('/chat', { method: 'POST', body: JSON.stringify({ question, conversationId }) });
+/** Saves one question + answer to the user's conversation (creating it on the first question). */
+async function recordExchange(
+  question: string,
+  assistantMessage: Message,
+  conversationId?: string,
+): Promise<{ message: Message; conversationId: string }> {
+  const fallbackId = conversationId || `local-${Date.now()}`;
+  if (!storedToken()) return { message: assistantMessage, conversationId: fallbackId };
+  const userMessage: Message = {
+    id: `q-${assistantMessage.id}`,
+    role: 'user',
+    bodyBn: question,
+    bodyEn: question,
+    citations: [],
+    createdAt: new Date().toISOString(),
+  };
+  try {
+    const conv = await post<Conversation>('/conversations/exchange', { conversationId, userMessage, assistantMessage });
+    return { message: assistantMessage, conversationId: conv.id };
+  } catch {
+    // Saving failed (e.g. backend briefly down): still show the answer.
+    return { message: assistantMessage, conversationId: fallbackId };
+  }
+}
+
+/**
+ * AI answer: retrieval over the Bangladesh-law corpus (FastAPI `POST /chat`, see backend/app/rag).
+ * Never substitutes a pre-written answer: if the AI can't answer, the caller gets an error to show.
+ */
+export async function askQuestion(
+  question: string,
+  conversationId?: string,
+  history: Pick<Message, 'role' | 'bodyEn' | 'bodyBn'>[] = [],
+): Promise<{ message: Message; conversationId: string }> {
+  let answer: Message;
+  try {
+    const res = await post<{ message: Message }>('/chat', {
+      question,
+      history: history.slice(-6).map((m) => ({ role: m.role, text: (m.bodyEn || m.bodyBn).slice(0, 1500) })),
+    });
+    answer = res.message;
+  } catch (err) {
+    if (err instanceof ApiError && err.status >= 400 && err.status < 500 && err.status !== 404) throw err;
+    throw new ApiError(
+      503,
+      'AI_UNAVAILABLE',
+      'The AI assistant is not available right now. Please try again in a moment.',
+      'এআই সহায়ক এই মুহূর্তে উপলব্ধ নয়। একটু পরে আবার চেষ্টা করুন।',
+    );
+  }
+  return recordExchange(question, answer, conversationId);
 }
 
 export async function sendFeedback(
@@ -285,10 +358,13 @@ export async function sendFeedback(
   value: 'up' | 'down' | 'flag',
   reason?: string,
 ): Promise<{ ok: boolean; messageId: string }> {
-  return apiRequest(`/messages/${encodeURIComponent(messageId)}/feedback`, {
-    method: 'POST',
-    body: JSON.stringify({ value, reason }),
-  });
+  if (!storedToken()) return { ok: false, messageId };
+  try {
+    return await post('/conversations/feedback', { messageId, value, reason });
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return { ok: false, messageId }; // answer was never saved
+    throw err;
+  }
 }
 
 // --- LAWYER DIRECTORY & PROFILE API ---
@@ -299,8 +375,13 @@ export async function listLawyers(filters?: {
   verifiedOnly?: boolean;
   maxFee?: number;
 }): Promise<LawyerProfile[]> {
-  // The public directory only ever lists approved lawyers, so `verifiedOnly` is implicit.
-  return apiRequest(`/lawyers${qs({ area: filters?.area, district: filters?.district, maxFee: filters?.maxFee })}`);
+  // The directory only ever contains verified lawyers, so `verifiedOnly` needs no server filter.
+  const params = new URLSearchParams();
+  if (filters?.area && filters.area !== 'all') params.set('area', filters.area);
+  if (filters?.district && filters.district !== 'all') params.set('district', filters.district);
+  if (filters?.maxFee) params.set('maxFee', String(filters.maxFee));
+  const qs = params.toString();
+  return apiRequest(`/lawyers${qs ? `?${qs}` : ''}`);
 }
 
 const RECOMMENDATION_DOMAINS: { keywords: RegExp; areaHints: string[] }[] = [
@@ -316,7 +397,18 @@ const RECOMMENDATION_DOMAINS: { keywords: RegExp; areaHints: string[] }[] = [
   { keywords: /\bcontract\b|\bagreement\b|\bbusiness\b|চুক্তি|ব্যবসা/i, areaHints: ['contract'] },
 ];
 
-/** Ranks the live directory client-side; the scoring is presentation, not data. */
+interface AiAnalysis {
+  topics: { id: string; nameEn: string; nameBn: string }[];
+  areaHints: string[];
+  urgent: boolean;
+  statutes: { labelEn: string; labelBn: string; score: number }[];
+  crimeCategory: string | null;
+  national: { category: string; lastYear: number; last: number; firstYear: number; first: number; pctChange: number } | null;
+  districts: Record<string, { unit: string; year: number; cases: number }>;
+}
+
+const toBnDigits = (n: number | string) => String(n).replace(/\d/g, (d) => '০১২৩৪৫৬৭৮৯'[Number(d)]);
+
 export async function getAiLawyerRecommendations(query: string): Promise<LawyerRecommendation[]> {
   const q = query.trim();
   const matchedHints = new Set<string>();
@@ -324,12 +416,25 @@ export async function getAiLawyerRecommendations(query: string): Promise<LawyerR
     if (d.keywords.test(q)) d.areaHints.forEach((h) => matchedHints.add(h));
   });
 
+  // Dataset-driven analysis from the backend (topics -> practice areas, governing statutes, crime statistics).
+  let analysis: AiAnalysis | null = null;
+  try {
+    analysis = await apiRequest<AiAnalysis>('/recommend/analyze', { method: 'POST', body: JSON.stringify({ query: q }) });
+    analysis.areaHints.forEach((h) => matchedHints.add(h));
+  } catch {
+    await delay(700); // backend offline: keep the original keyword-only behaviour
+  }
+
   const lawyers = await listLawyers();
   const scored = lawyers.map((lawyer) => {
     const matchedAreas = lawyer.practiceAreas.filter((area) =>
       Array.from(matchedHints).some((hint) => area.toLowerCase().includes(hint)),
     );
     let score = matchedAreas.length * 12;
+    if (analysis) {
+      const first = Array.from(matchedHints).findIndex((h) => matchedAreas.some((a) => a.toLowerCase().includes(h)));
+      if (first >= 0 && first < (analysis.areaHints.length || 0)) score += Math.max(0, 6 - first); // earlier = closer to the main legal topic
+    }
     score += lawyer.rating * 3;
     score += Math.min(lawyer.reviewCount / 10, 5);
     if (lawyer.isAvailableToday) score += 4;
@@ -350,42 +455,50 @@ export async function getAiLawyerRecommendations(query: string): Promise<LawyerR
     const reasonBn = matchedAreas.length > 0
       ? `বিশেষজ্ঞ: ${areaLabel} · ★ ${lawyer.rating} (${lawyer.reviewCount}টি পর্যালোচনা)${availabilityBn}`
       : `সর্বোচ্চ রেটেড আইনজীবী · ★ ${lawyer.rating} (${lawyer.reviewCount}টি পর্যালোচনা)${availabilityBn}`;
-    return { lawyer, score, matchedAreas, reasonBn, reasonEn };
+    // Dataset context: governing statute + police-recorded cases in the lawyer's district (crime statistics file).
+    let extraEn = '';
+    let extraBn = '';
+    if (analysis && matchedAreas.length > 0) {
+      const top = analysis.statutes[0];
+      if (top) {
+        extraEn += ` · Relevant law: ${top.labelEn.split(' · ')[0]}`;
+        extraBn += ` · প্রাসঙ্গিক আইন: ${top.labelBn.split(' · ')[0]}`;
+      }
+      const d = analysis.districts[lawyer.district.toLowerCase().replace('chittagong', 'chattogram')];
+      if (d && analysis.crimeCategory) {
+        extraEn += ` · ${d.cases.toLocaleString('en-US')} such cases recorded in ${lawyer.district} (${d.year})`;
+        extraBn += ` · ${lawyer.district}-এ ${toBnDigits(d.year)} সালে ${toBnDigits(d.cases)}টি এ ধরনের মামলা নথিভুক্ত`;
+      }
+    }
+    return { lawyer, score, matchedAreas, reasonBn: reasonBn + extraBn, reasonEn: reasonEn + extraEn };
   });
 }
 
 export async function getLawyerById(id: string): Promise<LawyerProfile | undefined> {
-  return orUndefined(apiRequest(`/lawyers/${encodeURIComponent(id)}`));
+  return orUndefined(apiRequest<LawyerProfile>(`/lawyers/${encodeURIComponent(id)}`));
 }
 
-/** Updates the signed-in lawyer's own profile. */
+/** Saves the signed-in lawyer's own profile. */
 export async function updateLawyerProfile(profile: Partial<LawyerProfile>): Promise<LawyerProfile> {
-  return apiRequest('/lawyers/me', { method: 'PATCH', body: JSON.stringify(profile) });
-}
-
-export interface WeeklyAvailability {
-  /** `"<Weekday>-<HH:MM>"`, e.g. `"Sunday-16:00"`. */
-  slots: string[];
-  vacationMode: boolean;
-}
-
-export async function getMyAvailability(): Promise<WeeklyAvailability> {
-  return apiRequest('/lawyers/me/availability');
-}
-
-export async function saveMyAvailability(data: WeeklyAvailability): Promise<WeeklyAvailability> {
-  return apiRequest('/lawyers/me/availability', { method: 'PUT', body: JSON.stringify(data) });
+  const { fullName, fullNameBn, title, titleBn, district, bioEn, bioBn, startingFeeBdt, responseTimeCommitment,
+    responseTimeCommitmentBn, education } = profile;
+  return apiRequest('/lawyers/me', {
+    method: 'PUT',
+    body: JSON.stringify({ fullName, fullNameBn, title, titleBn, district, bioEn, bioBn, startingFeeBdt,
+      responseTimeCommitment, responseTimeCommitmentBn, education }),
+  });
 }
 
 // --- VERIFICATIONS API ---
+// The backend decides what each role sees: citizens their own requests, lawyers those assigned to them,
+// admins everything. The arguments are kept for call-site compatibility.
 
-/** The backend scopes the list by the caller's role (own / assigned / all), so the arguments are informational. */
 export async function listVerifications(_role?: 'citizen' | 'lawyer' | 'admin', _userId?: string): Promise<VerificationRequest[]> {
   return apiRequest('/verifications');
 }
 
 export async function getVerificationById(id: string): Promise<VerificationRequest | undefined> {
-  return orUndefined(apiRequest(`/verifications/${encodeURIComponent(id)}`));
+  return orUndefined(apiRequest<VerificationRequest>(`/verifications/${encodeURIComponent(id)}`));
 }
 
 export async function createVerificationRequest(data: {
@@ -395,35 +508,27 @@ export async function createVerificationRequest(data: {
   answerText: string;
   citations: Citation[];
   urgency?: 'normal' | 'urgent';
-  payment: ManualPayment;
 }): Promise<VerificationRequest> {
-  return apiRequest('/verifications', { method: 'POST', body: JSON.stringify(data) });
+  return post('/verifications', { ...data, urgency: data.urgency || 'normal' });
 }
 
-/** Admin: assign a pending request to an approved lawyer. */
-export async function assignVerificationRequest(requestId: string, lawyerId: string, _lawyerName: string): Promise<VerificationRequest> {
-  return apiRequest(`/verifications/${encodeURIComponent(requestId)}/assign`, {
-    method: 'POST',
-    body: JSON.stringify({ lawyerId }),
-  });
+export async function assignVerificationRequest(requestId: string, lawyerId: string, _lawyerName?: string): Promise<VerificationRequest> {
+  return post(`/verifications/${encodeURIComponent(requestId)}/assign`, { lawyerId });
 }
 
 export async function declineVerificationRequest(requestId: string, reason: string): Promise<VerificationRequest> {
-  return apiRequest(`/verifications/${encodeURIComponent(requestId)}/decline`, {
-    method: 'POST',
-    body: JSON.stringify({ reason }),
-  });
+  return post(`/verifications/${encodeURIComponent(requestId)}/decline`, { reason });
 }
 
-/** The verdict is attributed to the signed-in lawyer; the lawyer fields are kept for signature compatibility. */
+/** The lawyer's identity on the verdict is taken from their session, not from these fields. */
 export async function submitVerificationVerdict(
   requestId: string,
   verdictData: {
-    lawyerId: string;
-    lawyerName: string;
-    lawyerNameBn: string;
-    lawyerAvatar: string;
-    lawyerEnrolmentNo: string;
+    lawyerId?: string;
+    lawyerName?: string;
+    lawyerNameBn?: string;
+    lawyerAvatar?: string;
+    lawyerEnrolmentNo?: string;
     verdict: VerdictType;
     correctedExplanationBn: string;
     correctedExplanationEn: string;
@@ -434,24 +539,33 @@ export async function submitVerificationVerdict(
     minutesSpent: number;
   },
 ): Promise<VerificationVerdict> {
-  return apiRequest(`/verifications/${encodeURIComponent(requestId)}/verdict`, {
-    method: 'POST',
-    body: JSON.stringify(verdictData),
+  const { verdict, correctedExplanationBn, correctedExplanationEn, addedStatuteCitations, disputedStatuteCitations,
+    noteToCitizenBn, noteToCitizenEn, minutesSpent } = verdictData;
+  return post(`/verifications/${encodeURIComponent(requestId)}/verdict`, {
+    verdict, correctedExplanationBn, correctedExplanationEn, addedStatuteCitations, disputedStatuteCitations,
+    noteToCitizenBn, noteToCitizenEn, minutesSpent,
   });
 }
 
 // --- CONSULTATIONS API ---
 
-/** Scoped by the caller's role: a citizen's own, a lawyer's clients, or all for admins. */
 export async function listConsultations(): Promise<ConsultationRequest[]> {
   return apiRequest('/consultations');
 }
 
 export async function getConsultationById(id: string): Promise<ConsultationRequest | undefined> {
-  return orUndefined(apiRequest(`/consultations/${encodeURIComponent(id)}`));
+  return orUndefined(apiRequest<ConsultationRequest>(`/consultations/${encodeURIComponent(id)}`));
 }
 
-/** The fee charged is the lawyer's published fee for the mode; `feeBdt` is only a fallback. */
+/** The fee is set by the backend from the lawyer's fee table; `feeBdt` is only a display hint. */
+/** A lawyer's bookable times (Bangladesh time). `hasSchedule` false = no weekly hours published. */
+export async function getLawyerOpenSlots(
+  lawyerId: string,
+  days = 14,
+): Promise<{ hasSchedule: boolean; slots: ConsultationSlot[] }> {
+  return apiRequest(`/lawyers/${encodeURIComponent(lawyerId)}/open-slots?days=${days}`);
+}
+
 export async function createConsultationRequest(data: {
   lawyerId: string;
   topic: string;
@@ -460,31 +574,24 @@ export async function createConsultationRequest(data: {
   feeBdt: number;
   slots: ConsultationSlot[];
   attachments?: { name: string; size: string; url: string }[];
-  payment: ManualPayment;
 }): Promise<ConsultationRequest> {
-  return apiRequest('/consultations', { method: 'POST', body: JSON.stringify(data) });
+  return post('/consultations', { ...data, attachments: data.attachments ?? [] });
 }
 
 export async function acceptConsultation(id: string, slot?: ConsultationSlot): Promise<ConsultationRequest> {
-  return apiRequest(`/consultations/${encodeURIComponent(id)}/accept`, { method: 'POST', body: JSON.stringify({ slot }) });
+  return post(`/consultations/${encodeURIComponent(id)}/accept`, { slot: slot ?? null });
 }
 
 export async function declineConsultation(id: string, reason: string): Promise<ConsultationRequest> {
-  return apiRequest(`/consultations/${encodeURIComponent(id)}/decline`, { method: 'POST', body: JSON.stringify({ reason }) });
+  return post(`/consultations/${encodeURIComponent(id)}/decline`, { reason });
 }
 
 export async function completeConsultation(id: string, privateNotes?: string): Promise<ConsultationRequest> {
-  return apiRequest(`/consultations/${encodeURIComponent(id)}/complete`, {
-    method: 'POST',
-    body: JSON.stringify({ privateNotes }),
-  });
+  return post(`/consultations/${encodeURIComponent(id)}/complete`, { privateNotes: privateNotes || null });
 }
 
 export async function submitConsultationReview(id: string, rating: number, text: string): Promise<{ ok: boolean }> {
-  return apiRequest(`/consultations/${encodeURIComponent(id)}/review`, {
-    method: 'POST',
-    body: JSON.stringify({ rating, text }),
-  });
+  return post(`/consultations/${encodeURIComponent(id)}/review`, { rating, text });
 }
 
 export async function listLawyerReviews(lawyerId: string): Promise<LawyerReview[]> {
@@ -499,28 +606,31 @@ export async function updateConsultationDetails(
 }
 
 // --- THREADS / MESSAGING API ---
+// A thread opens when a lawyer accepts a consultation; only its two participants can read it.
+
+/** Meeting links come back as app paths; make them shareable full URLs. */
+const absoluteLink = (link?: string) => (link && link.startsWith('/') ? `${window.location.origin}${link}` : link);
+const withThreadLink = (t: Thread): Thread => ({ ...t, meetingLink: absoluteLink(t.meetingLink) });
+const withMeetingLink = (m: Meeting): Meeting => ({ ...m, link: absoluteLink(m.link) ?? m.link });
 
 export async function listThreads(): Promise<Thread[]> {
-  return apiRequest('/threads');
+  return (await apiRequest<Thread[]>('/threads')).map(withThreadLink);
 }
 
-/** Opening a thread also marks the other side's messages as read. */
 export async function getThreadById(id: string): Promise<Thread | undefined> {
-  return orUndefined(apiRequest(`/threads/${encodeURIComponent(id)}`));
+  const thread = await orUndefined(apiRequest<Thread>(`/threads/${encodeURIComponent(id)}`));
+  // Opening a thread marks it read on the server: let the top-bar badges update right away.
+  if (thread) window.dispatchEvent(new Event('inbox:refresh'));
+  return thread && withThreadLink(thread);
 }
 
-/** The sender is the signed-in user; `senderRole` is kept for signature compatibility. */
-export async function sendThreadMessage(threadId: string, text: string, _senderRole: 'citizen' | 'lawyer'): Promise<Thread> {
-  return apiRequest(`/threads/${encodeURIComponent(threadId)}/messages`, { method: 'POST', body: JSON.stringify({ text }) });
+export async function sendThreadMessage(threadId: string, text: string, _senderRole?: 'citizen' | 'lawyer'): Promise<Thread> {
+  return withThreadLink(await post<Thread>(`/threads/${encodeURIComponent(threadId)}/messages`, { text }));
 }
 
 // --- VIDEO MEETINGS API ---
 
-/**
- * Lawyers can always start a meeting. With `threadId` the invite (link, code and
- * password) is posted into that client thread; without one it's an open meeting
- * the lawyer can share later with `inviteToMeeting` or by copying the details.
- */
+/** Started by the signed-in lawyer; the host and citizen come from the session and the thread. */
 export async function createMeeting(data: {
   hostLawyerId?: string;
   hostLawyerName?: string;
@@ -529,60 +639,43 @@ export async function createMeeting(data: {
   title: string;
   threadId?: string;
 }): Promise<Meeting> {
-  return apiRequest('/meetings', {
-    method: 'POST',
-    body: JSON.stringify({ citizenId: data.citizenId, title: data.title, threadId: data.threadId }),
-  });
-}
-
-/** Posts a live meeting's link, code and password as a message in the client's thread. */
-export async function inviteToMeeting(meetingId: string, threadId: string): Promise<Meeting> {
-  return apiRequest(`/meetings/${encodeURIComponent(meetingId)}/invite`, {
-    method: 'POST',
-    body: JSON.stringify({ threadId }),
-  });
+  return withMeetingLink(await post<Meeting>('/meetings', { title: data.title, threadId: data.threadId, citizenId: data.citizenId }));
 }
 
 export async function getMeetingByCode(code: string): Promise<Meeting | undefined> {
-  return orUndefined(apiRequest(`/meetings/${encodeURIComponent(code.trim().toLowerCase())}`));
+  const meeting = await orUndefined(apiRequest<Meeting>(`/meetings/by-code/${encodeURIComponent(code.trim().toLowerCase())}`));
+  return meeting && withMeetingLink(meeting);
 }
 
 export async function joinMeetingWithPassword(
   code: string,
   password: string,
 ): Promise<{ ok: boolean; meeting?: Meeting; error?: string }> {
-  const res = await apiRequest<{ ok: boolean; meeting?: Meeting | null; error?: string | null }>('/meetings/join', {
-    method: 'POST',
-    body: JSON.stringify({ code, password }),
-  });
-  return { ok: res.ok, meeting: res.meeting ?? undefined, error: res.error ?? undefined };
+  const res = await post<{ ok: boolean; meeting?: Meeting; error?: string }>('/meetings/join', { code, password });
+  return res.meeting ? { ...res, meeting: withMeetingLink(res.meeting) } : res;
 }
 
 export async function endMeeting(id: string): Promise<Meeting> {
-  return apiRequest(`/meetings/${encodeURIComponent(id)}/end`, { method: 'POST' });
+  return withMeetingLink(await post<Meeting>(`/meetings/${encodeURIComponent(id)}/end`));
 }
 
 // --- MESSAGE REPORTS API ---
 
-/** Snapshot and names are taken server-side from the stored message. */
+/** The reporter, the reported party and the message text are filled in by the backend. */
 export async function reportThreadMessage(data: {
   threadId: string;
   messageId: string;
-  messageSnapshot: string;
-  reportedByRole: 'citizen' | 'lawyer';
-  reportedByName: string;
-  reportedAgainstName: string;
+  messageSnapshot?: string;
+  reportedByRole?: 'citizen' | 'lawyer';
+  reportedByName?: string;
+  reportedAgainstName?: string;
   reasonCategory: string;
   reasonDetails?: string;
 }): Promise<MessageReport> {
-  return apiRequest('/reports', {
-    method: 'POST',
-    body: JSON.stringify({
-      threadId: data.threadId,
-      messageId: data.messageId,
-      reasonCategory: data.reasonCategory,
-      reasonDetails: data.reasonDetails,
-    }),
+  return post(`/threads/${encodeURIComponent(data.threadId)}/reports`, {
+    messageId: data.messageId,
+    reasonCategory: data.reasonCategory,
+    reasonDetails: data.reasonDetails,
   });
 }
 
@@ -591,20 +684,17 @@ export async function listMessageReports(): Promise<MessageReport[]> {
 }
 
 export async function resolveMessageReport(id: string, action: 'dismiss' | 'warn' | 'escalate'): Promise<{ ok: boolean }> {
-  return apiRequest(`/admin/message-reports/${encodeURIComponent(id)}/resolve`, {
-    method: 'POST',
-    body: JSON.stringify({ action }),
-  });
+  return post(`/admin/message-reports/${encodeURIComponent(id)}/resolve`, { action });
 }
 
 // --- DOCUMENTS DRAFTING API ---
 
 export async function listDraftTemplates(): Promise<DraftTemplate[]> {
-  return apiRequest('/draft/templates');
+  return mockDraftTemplates;
 }
 
 export async function getDraftTemplateBySlug(slug: string): Promise<DraftTemplate | undefined> {
-  return orUndefined(apiRequest(`/draft/templates/${encodeURIComponent(slug)}`));
+  return mockDraftTemplates.find((t) => t.slug === slug || t.id === slug);
 }
 
 export async function listDocuments(): Promise<DraftDocument[]> {
@@ -612,22 +702,38 @@ export async function listDocuments(): Promise<DraftDocument[]> {
 }
 
 export async function getDocumentById(id: string): Promise<DraftDocument | undefined> {
-  return orUndefined(apiRequest(`/documents/${encodeURIComponent(id)}`));
+  return orUndefined(apiRequest<DraftDocument>(`/documents/${encodeURIComponent(id)}`));
 }
 
 export async function createDocumentDraft(templateId: string, title: string, answers: Record<string, string>): Promise<DraftDocument> {
-  return apiRequest('/documents', { method: 'POST', body: JSON.stringify({ templateId, title, answers }) });
+  const tmpl = mockDraftTemplates.find((t) => t.id === templateId || t.slug === templateId) || mockDraftTemplates[0];
+  const sender = answers.sender_info || answers.complainant_name;
+  const recipient = answers.recipient_info || answers.shop_name_location;
+  const details = answers.dispute_details || answers.incident_summary;
+  return post('/documents', {
+    templateId: tmpl.id,
+    templateTitleBn: tmpl.titleBn,
+    templateTitleEn: tmpl.titleEn,
+    title: title || tmpl.titleBn,
+    answers,
+    generatedTextBn: `আইনি নোটিশ / আবেদনপত্র খসড়া\nতারিখ: ${new Date().toLocaleDateString('bn-BD')}\n\nপ্রেরক: ${sender || '[প্রেরকের নাম ও ঠিকানা]'}\nপ্রাপক: ${recipient || 'বিবাদী'}\n\nবিষয়: আইন লঙ্ঘনের প্রতিকার চেয়ে আইনি নোটিশ।\n\nবিবরণ: ${details || 'বিস্তারিত বিবরণ...'}`,
+    generatedTextEn: `LEGAL NOTICE / APPLICATION DRAFT\nDate: ${new Date().toLocaleDateString('en-GB')}\n\nFrom: ${sender || '[Sender name and address]'}\nTo: ${recipient || 'Respondent'}\n\nSubject: Formal statutory legal demand.\n\nParticulars: ${details || 'Details of dispute...'}`,
+  });
 }
 
 // --- NOTIFICATIONS API ---
 
-/** Always the signed-in user's notifications; `role` is informational. */
 export async function listNotifications(_role?: 'citizen' | 'lawyer' | 'admin'): Promise<AppNotification[]> {
+  if (!storedToken()) return [];
   return apiRequest('/notifications');
 }
 
+export async function markNotificationRead(id: string): Promise<{ ok: boolean }> {
+  return post(`/notifications/${encodeURIComponent(id)}/read`);
+}
+
 export async function markNotificationsAsRead(): Promise<{ ok: boolean }> {
-  return apiRequest('/notifications/read', { method: 'POST' });
+  return post('/notifications/read-all');
 }
 
 // --- ADMIN API ---
@@ -636,172 +742,37 @@ export async function getAdminStats(): Promise<AdminStats> {
   return apiRequest('/admin/stats');
 }
 
-export async function listAdminUsers(): Promise<User[]> {
-  return apiRequest('/admin/users');
-}
-
-/** Every lawyer regardless of approval status (the public directory shows approved only). */
 export async function listAdminLawyers(): Promise<LawyerProfile[]> {
   return apiRequest('/admin/lawyers');
 }
 
-/**
- * A lawyer's submitted ID / bar licence. It is served only to admins with the
- * bearer token, so it is fetched as a Blob rather than linked to directly.
- */
-export async function fetchLawyerLicenseDocument(lawyerId: string): Promise<Blob> {
-  const token = storedToken();
-  const res = await fetch(`${API_BASE}/admin/lawyers/${encodeURIComponent(lawyerId)}/license-document`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    const err = data?.error ?? {};
-    throw new ApiError(
-      res.status,
-      err.code ?? 'UNKNOWN_ERROR',
-      err.message_en ?? 'Could not load the document.',
-      err.message_bn ?? 'ডকুমেন্টটি লোড করা যায়নি।',
-    );
-  }
-  return res.blob();
-}
-
 export async function approveLawyer(id: string): Promise<LawyerProfile> {
-  return apiRequest(`/admin/lawyers/${encodeURIComponent(id)}/approve`, { method: 'POST' });
+  return post(`/admin/lawyers/${encodeURIComponent(id)}/approve`);
 }
 
 export async function rejectLawyer(id: string, reason?: string): Promise<LawyerProfile> {
-  return apiRequest(`/admin/lawyers/${encodeURIComponent(id)}/reject`, { method: 'POST', body: JSON.stringify({ reason }) });
+  return post(`/admin/lawyers/${encodeURIComponent(id)}/reject`, { reason: reason || '' });
 }
 
-// --- LAWYER EARNINGS & PAYOUTS ---
-// Lawyers earn from each verdict they issue and each consultation they complete.
-// The admin sends the money by bKash/Nagad/Rocket "Send Money" to the lawyer's
-// payout wallet, then records the TrxID as a payout.
-
-export interface PayoutAccount {
-  method: WalletMethod | null;
-  number: string | null;
+export async function listAdminUsers(): Promise<User[]> {
+  return apiRequest('/admin/users');
 }
 
-export interface EarningItem {
-  /** Verification: the assignment id. Consultation: the consultation id. */
-  id: string;
-  type: 'verification' | 'consultation';
-  referenceId: string;
-  title: string;
-  citizenName: string;
-  completedAt: string | null;
-  feeBdt: number;
-  lawyerShareBdt: number;
-  citizenPaymentStatus: 'confirmed' | 'pending' | 'rejected' | 'none';
-  paid: boolean;
-  payoutId: string | null;
-}
-
-export interface LawyerPayout {
-  id: string;
-  lawyerId: string;
-  lawyerName: string;
-  amountBdt: number;
-  method: WalletMethod | null;
-  receiverNumber: string | null;
-  trxId: string | null;
-  itemCount: number;
-  paidByName: string | null;
-  paidAt: string | null;
-  note: string | null;
-}
-
-export interface LawyerLedger {
-  lawyerId: string;
-  lawyerName: string;
-  payoutAccount: PayoutAccount;
-  owedBdt: number;
-  paidBdt: number;
-  items: EarningItem[];
-}
-
-export interface FinanceOverview {
-  summary: {
-    citizenConfirmedBdt: number;
-    citizenPendingBdt: number;
-    citizenPendingCount: number;
-    lawyerEarnedBdt: number;
-    lawyerOwedBdt: number;
-    lawyerPaidBdt: number;
-    platformNetBdt: number;
-    verificationSharePercent: number;
-    consultationSharePercent: number;
-  };
-  lawyers: LawyerLedger[];
-  payouts: LawyerPayout[];
-}
-
-export async function getFinanceOverview(): Promise<FinanceOverview> {
-  return apiRequest('/admin/finance');
-}
-
-/** Records a wallet payout. `itemIds` omitted = settle everything the lawyer is owed. */
-export async function payLawyer(data: { lawyerId: string; trxId: string; itemIds?: string[]; note?: string }): Promise<LawyerPayout> {
-  return apiRequest('/admin/payouts', { method: 'POST', body: JSON.stringify(data) });
-}
-
-export async function getMyPayoutAccount(): Promise<PayoutAccount> {
-  return apiRequest('/lawyers/me/payout-account');
-}
-
-export async function saveMyPayoutAccount(method: WalletMethod, number: string): Promise<PayoutAccount> {
-  return apiRequest('/lawyers/me/payout-account', { method: 'PUT', body: JSON.stringify({ method, number }) });
-}
-
-export interface MyEarnings {
-  payoutAccount: PayoutAccount;
-  owedBdt: number;
-  paidBdt: number;
-  items: EarningItem[];
-  payouts: LawyerPayout[];
-}
-
-export async function getMyEarnings(): Promise<MyEarnings> {
-  return apiRequest('/lawyers/me/earnings');
-}
-
-/** Citizen payments submitted with a wallet TrxID, to be checked against the wallet statement. */
-export async function listAdminPayments(): Promise<AdminPayment[]> {
-  return apiRequest('/admin/payments');
-}
-
-export async function reviewAdminPayment(id: string, action: 'confirm' | 'reject'): Promise<{ ok: boolean }> {
-  return apiRequest(`/admin/payments/${encodeURIComponent(id)}/${action}`, { method: 'POST' });
+export async function setUserSuspended(id: string, suspended: boolean): Promise<User> {
+  return post(`/admin/users/${encodeURIComponent(id)}/suspend`, { suspended });
 }
 
 export async function listCorpus(): Promise<CorpusDocument[]> {
   return apiRequest('/admin/corpus');
 }
 
-/** Uploads a statute PDF; the backend extracts its text into chunks before responding. */
-export async function uploadCorpusDocument(file: File, statuteId: string): Promise<CorpusDocument> {
-  const form = new FormData();
-  form.append('file', file);
-  form.append('statuteId', statuteId);
-  const token = storedToken();
-  const res = await fetch(`${API_BASE}/admin/corpus/upload`, {
-    method: 'POST',
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    body: form,
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const err = data?.error ?? {};
-    throw new ApiError(res.status, err.code ?? 'UNKNOWN_ERROR', err.message_en ?? 'Upload failed.', err.message_bn ?? 'আপলোড ব্যর্থ হয়েছে।');
-  }
-  return data as CorpusDocument;
+/** Not supported from the browser yet — the backend answers with instructions for the offline build. */
+export async function uploadCorpusDocument(_file: { name: string; statuteId: string; sizeMb: number }): Promise<CorpusDocument> {
+  return post('/admin/corpus/upload');
 }
 
 export async function rebuildIndex(): Promise<{ ok: boolean; message: string }> {
-  return apiRequest('/admin/corpus/reindex', { method: 'POST' });
+  return post('/admin/corpus/rebuild');
 }
 
 export async function listAdminFlags(): Promise<FlaggedAnswer[]> {
@@ -809,5 +780,48 @@ export async function listAdminFlags(): Promise<FlaggedAnswer[]> {
 }
 
 export async function resolveFlag(id: string, action: 'dismiss' | 'escalate' | 'corpus_issue'): Promise<{ ok: boolean }> {
-  return apiRequest(`/admin/flags/${encodeURIComponent(id)}/resolve`, { method: 'POST', body: JSON.stringify({ action }) });
+  return post(`/admin/flags/${encodeURIComponent(id)}/resolve`, { action });
+}
+
+// --- ACCOUNT SELF-SERVICE ---
+
+export async function updateMyAccount(data: { name?: string; phone?: string; district?: string }): Promise<User> {
+  return apiRequest('/auth/me', { method: 'PUT', body: JSON.stringify(data) });
+}
+
+export async function changePassword(currentPassword: string, newPassword: string): Promise<{ ok: boolean }> {
+  return post('/auth/change-password', { currentPassword, newPassword });
+}
+
+/** Everything stored about the signed-in user, as a JSON document. */
+export async function exportMyData(): Promise<unknown> {
+  return apiRequest('/auth/me/export');
+}
+
+/** Permanently deletes the signed-in citizen's account and data. */
+export async function deleteMyAccount(): Promise<{ ok: boolean }> {
+  return apiRequest('/auth/me', { method: 'DELETE' });
+}
+
+// --- LAWYER AVAILABILITY ---
+
+export interface LawyerAvailability {
+  vacationMode: boolean;
+  maxActiveConsultations: number;
+  /** Weekly slots such as "Sunday-16:00". */
+  slots: string[];
+}
+
+export async function getMyAvailability(): Promise<LawyerAvailability> {
+  return apiRequest('/lawyers/me/availability');
+}
+
+export async function saveMyAvailability(data: LawyerAvailability): Promise<LawyerAvailability> {
+  return apiRequest('/lawyers/me/availability', { method: 'PUT', body: JSON.stringify(data) });
+}
+
+/** Admin: record that the lawyer was paid for a completed verification or consultation. */
+export async function recordLawyerPayout(kind: 'verification' | 'consultation', id: string): Promise<{ ok: boolean }> {
+  await post(`/admin/payouts/${kind}/${encodeURIComponent(id)}`);
+  return { ok: true };
 }

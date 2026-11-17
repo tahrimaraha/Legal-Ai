@@ -1,4 +1,4 @@
-import { ArrowRight, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Shield, Users, Award } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useLang } from '../../context/LanguageContext';
 import { Button } from '../ui/Button';

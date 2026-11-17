@@ -161,24 +161,6 @@ class EmailNotVerifiedError(ForbiddenError):
     message_bn = "সাইন ইন করার আগে অনুগ্রহ করে আপনার ইমেইল যাচাই করুন।"
 
 
-class WrongPasswordError(ValidationAppError):
-    code = "WRONG_PASSWORD"
-    message_en = "Your current password is incorrect."
-    message_bn = "আপনার বর্তমান পাসওয়ার্ডটি সঠিক নয়।"
-
-
-class SamePasswordError(ValidationAppError):
-    code = "SAME_PASSWORD"
-    message_en = "Choose a new password that is different from your current one."
-    message_bn = "বর্তমান পাসওয়ার্ড থেকে ভিন্ন একটি নতুন পাসওয়ার্ড দিন।"
-
-
-class AlreadyVerifiedError(ConflictError):
-    code = "ALREADY_VERIFIED"
-    message_en = "This email is already verified. Please sign in."
-    message_bn = "এই ইমেইলটি আগেই যাচাই করা হয়েছে। অনুগ্রহ করে সাইন ইন করুন।"
-
-
 class InvalidOtpError(ValidationAppError):
     code = "INVALID_OTP"
     message_en = "Incorrect verification code."

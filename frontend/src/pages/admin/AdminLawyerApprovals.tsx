@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle2, XCircle, Eye, UserCheck, AlertTriangle } from 'lucide-react';
+import { ShieldAlert, CheckCircle2, XCircle, Eye, Award, FileText, Search, UserCheck, AlertTriangle } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
 import { listAdminLawyers, approveLawyer, rejectLawyer } from '../../lib/api';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { Drawer } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
-import { Skeleton } from '../../components/ui/EmptyState';
+import { Skeleton, EmptyState } from '../../components/ui/EmptyState';
 import type { LawyerProfile } from '../../mocks/types';
-import { LicenseDocumentViewer } from './LicenseDocumentViewer';
 
 export default function AdminLawyerApprovals() {
   const { lang, num } = useLang();
@@ -15,6 +14,17 @@ export default function AdminLawyerApprovals() {
   const [loading, setLoading] = useState(true);
   const [selectedLawyer, setSelectedLawyer] = useState<LawyerProfile | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<'all' | LawyerProfile['verificationStatus']>('all');
+
+  const filters = [
+    { key: 'all', labelEn: 'All', labelBn: 'সকল' },
+    { key: 'verified', labelEn: 'Verified Lawyers', labelBn: 'যাচাইকৃত আইনজীবী' },
+    { key: 'pending', labelEn: 'Pending Verification', labelBn: 'যাচাই অপেক্ষমাণ' },
+    { key: 'rejected', labelEn: 'Rejected', labelBn: 'প্রত্যাখ্যাত' },
+  ] as const;
+  const countFor = (key: (typeof filters)[number]['key']) =>
+    key === 'all' ? lawyers.length : lawyers.filter((l) => l.verificationStatus === key).length;
+  const visibleLawyers = statusFilter === 'all' ? lawyers : lawyers.filter((l) => l.verificationStatus === statusFilter);
 
   useEffect(() => {
     listAdminLawyers().then((data) => {
@@ -68,7 +78,42 @@ export default function AdminLawyerApprovals() {
           ))}
         </div>
       ) : (
-        <div className="border border-granite rounded bg-white shadow-sm overflow-hidden">
+        <>
+        <div role="tablist" aria-label={lang === 'bn' ? 'অবস্থা অনুযায়ী ফিল্টার' : 'Filter by status'} className="flex flex-wrap gap-2">
+          {filters.map((f) => {
+            const active = statusFilter === f.key;
+            return (
+              <button
+                key={f.key}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setStatusFilter(f.key)}
+                className={`flex items-center gap-2 rounded px-3 py-1.5 text-xs font-semibold transition border ${
+                  active
+                    ? 'bg-clay text-white border-clay'
+                    : 'bg-white text-ink-soft border-granite-soft hover:bg-clay-tint'
+                }`}
+              >
+                <span>{lang === 'bn' ? f.labelBn : f.labelEn}</span>
+                <span
+                  className={`font-mono text-[10px] rounded px-1.5 py-0.5 ${
+                    active ? 'bg-white/20 text-white' : 'bg-bone-deep text-clay-deep'
+                  }`}
+                >
+                  {num(countFor(f.key))}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {visibleLawyers.length === 0 ? (
+          <div className="rounded border border-granite bg-white p-8 text-center text-xs text-granite">
+            {lang === 'bn' ? 'এই তালিকায় কোনো আইনজীবী নেই' : 'No lawyers in this list'}
+          </div>
+        ) : (
+        <div className="border border-granite rounded bg-white shadow-sm overflow-x-auto">
           <table className="w-full text-xs text-left border-collapse">
             <thead className="bg-bone-deep border-b border-granite font-mono uppercase text-clay-deep">
               <tr>
@@ -81,7 +126,7 @@ export default function AdminLawyerApprovals() {
               </tr>
             </thead>
             <tbody className="divide-y divide-granite-soft">
-              {lawyers.map((lawyer) => (
+              {visibleLawyers.map((lawyer) => (
                 <tr key={lawyer.id} className="hover:bg-bone/40 transition">
                   <td className="p-3 font-semibold text-ink flex items-center gap-2">
                     <div className="h-7 w-7 rounded bg-clay-tint border border-clay flex items-center justify-center">
@@ -104,6 +149,8 @@ export default function AdminLawyerApprovals() {
             </tbody>
           </table>
         </div>
+        )}
+        </>
       )}
 
       {/* Detail Audit Drawer */}
@@ -155,10 +202,23 @@ export default function AdminLawyerApprovals() {
                 Submitted License / ID Document
               </span>
               {selectedLawyer.licenseDocumentUrl ? (
-                <LicenseDocumentViewer
-                  lawyerId={selectedLawyer.id}
-                  fileName={selectedLawyer.licenseDocumentName}
-                />
+                selectedLawyer.licenseDocumentUrl.startsWith('data:image') ? (
+                  <img
+                    src={selectedLawyer.licenseDocumentUrl}
+                    alt="Submitted license document"
+                    className="w-full max-h-72 object-contain rounded border border-granite-soft bg-white"
+                  />
+                ) : (
+                  <a
+                    href={selectedLawyer.licenseDocumentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-clay-deep hover:underline text-xs font-medium"
+                  >
+                    <FileText className="h-4 w-4" />
+                    <span>{selectedLawyer.licenseDocumentName || 'View document'}</span>
+                  </a>
+                )
               ) : (
                 <p className="flex items-center gap-1.5 text-xs text-brick">
                   <AlertTriangle className="h-3.5 w-3.5 shrink-0" />

@@ -2,11 +2,11 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime
+from datetime import datetime
 from typing import Optional
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY, ENUM, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -32,18 +32,6 @@ class Act(UUIDPkMixin, TimestampMixin, Base):
     category: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     source_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-    slug: Mapped[Optional[str]] = mapped_column(String(120), unique=True, nullable=True)
-    description_bn: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    description_en: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    topics: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False, default=list)
-    topics_bn: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False, default=list)
-    # Frontend StatuteStatus: live | indexing | planned
-    status: Mapped[str] = mapped_column(String(20), nullable=False, default="live")
-    # Total sections in the official Act (not just the ones seeded into `sections`).
-    section_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    last_reviewed: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
-    amendment_notice_bn: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    amendment_notice_en: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     sections: Mapped[list["Section"]] = relationship(
         back_populates="act", cascade="all, delete-orphan"
@@ -61,8 +49,6 @@ class Section(UUIDPkMixin, TimestampMixin, Base):
     heading_en: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     body_bn: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     body_en: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    plain_meaning_bn: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    plain_meaning_en: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     ordinal: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     act: Mapped["Act"] = relationship(back_populates="sections")
@@ -84,9 +70,6 @@ class CorpusDocument(UUIDPkMixin, TimestampMixin, Base):
         ingest_status_enum, nullable=False, default=IngestStatus.UPLOADED
     )
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
-    chunk_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    indexed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     chunks: Mapped[list["Chunk"]] = relationship(
         back_populates="document", cascade="all, delete-orphan"
@@ -144,6 +127,3 @@ class GlossaryTerm(UUIDPkMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("acts.id", ondelete="SET NULL"), nullable=True
     )
     synonyms: Mapped[list[str]] = mapped_column(ARRAY(String(255)), nullable=False, default=list)
-    section_ref: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
-    example_bn: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    example_en: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

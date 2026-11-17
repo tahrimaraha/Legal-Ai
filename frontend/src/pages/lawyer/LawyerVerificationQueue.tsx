@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { ShieldCheck, Clock, ArrowRight, Filter, Search } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
 import { useRole } from '../../context/RoleContext';
 import { listVerifications } from '../../lib/api';
@@ -10,12 +10,17 @@ import { Skeleton, EmptyState } from '../../components/ui/EmptyState';
 import type { VerificationRequest } from '../../mocks/types';
 
 export default function LawyerVerificationQueue() {
-  const { lang } = useLang();
+  const { lang, num } = useLang();
   const { user } = useRole();
+  const navigate = useNavigate();
 
   const [requests, setRequests] = useState<VerificationRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'in_progress' | 'completed'>('all');
+  const [searchParams] = useSearchParams();
+  const [statusFilter, setStatusFilter] = useState<'all' | 'in_progress' | 'completed'>(() => {
+    const s = searchParams.get('status');
+    return s === 'in_progress' || s === 'completed' ? s : 'all';
+  });
 
   useEffect(() => {
     if (!user) return;

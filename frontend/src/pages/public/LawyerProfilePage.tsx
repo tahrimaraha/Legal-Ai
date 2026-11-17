@@ -4,16 +4,20 @@ import {
   MapPin,
   Award,
   Calendar,
+  Clock,
+  ShieldCheck,
   Building,
   GraduationCap,
+  MessageSquare,
   ArrowLeft,
   CheckCircle2,
+  AlertCircle,
   UserCheck,
 } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
 import { useRole } from '../../context/RoleContext';
 import { getLawyerById } from '../../lib/api';
-import { StatusBadge } from '../../components/ui/StatusBadge';
+import { StatusBadge, VerifiedBadge } from '../../components/ui/StatusBadge';
 import { Rating } from '../../components/ui/Rating';
 import { Button } from '../../components/ui/Button';
 import { Skeleton, ErrorState } from '../../components/ui/EmptyState';

@@ -16,9 +16,11 @@ import {
   Video,
 } from 'lucide-react';
 import { useLang } from '../context/LanguageContext';
-import { LogoMark } from '../components/ui/Logo';
 import { useRole } from '../context/RoleContext';
 import { LanguageToggle } from '../components/ui/LanguageToggle';
+import { LogoMark } from '../components/ui/Logo';
+import { useInbox } from '../lib/useInbox';
+import { HeaderInbox } from '../components/ui/HeaderInbox';
 
 export function LawyerLayout() {
   const { lang } = useLang();
@@ -28,6 +30,9 @@ export function LawyerLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const isPending = user?.isVerified === false;
+  const inbox = useInbox(!!user && !isPending);
+  const badgeFor = (to: string) =>
+    to === '/lawyer/notifications' ? inbox.unreadNotifications : to === '/lawyer/messages' ? inbox.unreadThreads : 0;
 
   const navItems = [
     { to: '/lawyer', labelBn: 'ড্যাশবোর্ড', labelEn: 'Dashboard', icon: LayoutDashboard },
@@ -60,7 +65,7 @@ export function LawyerLayout() {
         {/* Brand header */}
         <div className="header-wood flex h-14 items-center justify-between px-4 text-bone">
           <Link to="/lawyer" className="flex items-center gap-2">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-[#FDF6E8] p-0.5 shadow-sm"><LogoMark className="h-full w-full" /></span>
+            <LogoMark className="h-8 w-8" />
             <div className="flex flex-col">
               <span className="font-mono text-xs font-bold tracking-wider uppercase">LEGAL AI</span>
               <span className="text-[9px] text-bone/60 font-mono">
@@ -93,6 +98,7 @@ export function LawyerLayout() {
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.to || (item.to !== '/lawyer' && location.pathname.startsWith(item.to));
+            const badge = badgeFor(item.to);
             return (
               <Link
                 key={item.to}
@@ -105,7 +111,12 @@ export function LawyerLayout() {
                 }`}
               >
                 <Icon className="h-3.5 w-3.5 shrink-0" />
-                <span>{lang === 'bn' ? item.labelBn : item.labelEn}</span>
+                <span className="flex-1">{lang === 'bn' ? item.labelBn : item.labelEn}</span>
+                {badge > 0 && (
+                  <span className="min-w-[18px] rounded-full bg-red-600 px-1.5 text-center text-[10px] font-bold leading-[18px] text-white">
+                    {badge > 9 ? '9+' : badge}
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -114,17 +125,22 @@ export function LawyerLayout() {
         {/* Lawyer footer */}
         <div className="border-t border-granite-soft p-3 bg-bone">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 truncate">
+            <Link
+              to="/lawyer/profile"
+              onClick={() => setSidebarOpen(false)}
+              title={lang === 'bn' ? 'আমার প্রোফাইল' : 'My profile'}
+              className="group flex min-w-0 flex-1 items-center gap-2 rounded p-1 -m-1 hover:bg-clay-tint transition"
+            >
               <img
                 src={user?.avatarUrl || '/logo.svg'}
                 alt="Lawyer Avatar"
-                className="h-7 w-7 rounded object-cover border border-granite"
+                className="h-7 w-7 shrink-0 rounded object-cover border border-granite"
               />
               <div className="truncate">
-                <p className="truncate text-xs font-semibold text-ink">{user?.name || 'Advocate'}</p>
+                <p className="truncate text-xs font-semibold text-ink group-hover:text-clay-deep group-hover:underline">{user?.name || 'Advocate'}</p>
                 <span className="font-mono text-[10px] text-clay-deep uppercase">Bar Verified</span>
               </div>
-            </div>
+            </Link>
             <button
               onClick={() => {
                 logout();
@@ -156,6 +172,7 @@ export function LawyerLayout() {
 
           <div className="flex items-center gap-3">
             <LanguageToggle tone="invert" />
+            {!isPending && <HeaderInbox inbox={inbox} base="/lawyer" />}
           </div>
         </header>
 

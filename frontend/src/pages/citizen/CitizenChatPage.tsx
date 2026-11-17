@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { AssistantMessage } from '../../components/chat/AssistantMessage';
 import { CitationDrawer } from '../../components/chat/CitationDrawer';
@@ -9,9 +9,9 @@ import { Button } from '../../components/ui/Button';
 import { PaymentProcess } from '../../components/ui/PaymentProcess';
 import { useLang } from '../../context/LanguageContext';
 import { useChat } from '../../lib/useChat';
-import { getConversation, createVerificationRequest, type ManualPayment } from '../../lib/api';
-import type { Citation, Message } from '../../mocks/types';
-import { ShieldCheck, CheckCircle2, AlertCircle, ArrowRight } from 'lucide-react';
+import { getConversation, createVerificationRequest } from '../../lib/api';
+import type { Citation, Conversation, Message } from '../../mocks/types';
+import { ShieldCheck, CheckCircle2, AlertCircle, ArrowRight, AlertTriangle, RotateCcw } from 'lucide-react';
 
 export default function CitizenChatPage() {
   const { id } = useParams<{ id: string }>();
@@ -26,30 +26,24 @@ export default function CitizenChatPage() {
   const [selectedMessageForVerif, setSelectedMessageForVerif] = useState<Message | null>(null);
   const [verifUrgency, setVerifUrgency] = useState<'normal' | 'urgent'>('normal');
   const [verifSuccess, setVerifSuccess] = useState(false);
-  const [, setVerifLoading] = useState(false);
+  const [verifLoading, setVerifLoading] = useState(false);
 
   const endRef = useRef<HTMLDivElement>(null);
   const initialSentRef = useRef(false);
 
-  // Load conversation if id provided (skipped when the id is the one this page just created)
+  // Load conversation if id provided
   useEffect(() => {
-    if (id && id !== chat.conversationId) {
+    if (id) {
       getConversation(id).then((conv) => {
         if (conv) {
           chat.reset(conv.messages, conv.id);
         }
       });
-    } else if (!id && chat.conversationId) {
-      chat.reset();
+    } else if (chat.conversationId) {
+      // Navigated from an open chat to a new one: start fresh.
+      chat.reset([]);
     }
   }, [id]);
-
-  // Give a newly created conversation its own URL so it can be reloaded and shared from history
-  useEffect(() => {
-    if (chat.conversationId && chat.conversationId !== id) {
-      navigate(`/app/chat/${chat.conversationId}`, { replace: true });
-    }
-  }, [chat.conversationId]);
 
   // Handle URL prefilled query (e.g. from dashboard or glossary)
   useEffect(() => {
@@ -75,14 +69,10 @@ export default function CitizenChatPage() {
     setPaymentModalOpen(true);
   };
 
-  // Creates the request with the submitted TrxID; errors surface inside the payment form.
-  const handlePaymentSubmit = async (payment: ManualPayment) => {
-    await handleConfirmVerification(payment);
-    // Let the payment success state show briefly, then reopen the dialog on its success view.
-    setTimeout(() => {
-      setPaymentModalOpen(false);
-      setVerificationModalOpen(true);
-    }, 1500);
+  const handlePaymentComplete = () => {
+    setPaymentModalOpen(false);
+    // Process the actual verification request
+    handleConfirmVerification();
   };
 
   const handleCancelPayment = () => {
@@ -90,18 +80,20 @@ export default function CitizenChatPage() {
     setVerificationModalOpen(true);
   };
 
-  const handleConfirmVerification = async (payment: ManualPayment) => {
+  const handleConfirmVerification = async () => {
     if (!selectedMessageForVerif) return;
     setVerifLoading(true);
     try {
+      // The question is the user message just before the answer being verified.
+      const answerIndex = chat.messages.findIndex((m) => m.id === selectedMessageForVerif.id);
+      const question = chat.messages.slice(0, Math.max(answerIndex, 0)).reverse().find((m) => m.role === 'user');
       await createVerificationRequest({
         conversationId: chat.conversationId || id || '',
         messageId: selectedMessageForVerif.id,
-        questionText: chat.messages[0]?.bodyBn || 'নাগরিকের আইনি প্রশ্ন',
+        questionText: question?.bodyBn || question?.bodyEn || 'নাগরিকের আইনি প্রশ্ন',
         answerText: selectedMessageForVerif.bodyBn,
         citations: selectedMessageForVerif.citations,
         urgency: verifUrgency,
-        payment,
       });
       setVerifSuccess(true);
     } finally {
@@ -121,7 +113,7 @@ export default function CitizenChatPage() {
   const empty = chat.messages.length === 0 && !chat.pending;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-8.5rem)] font-body">
+    <div className="flex flex-col h-[calc(100dvh-8.5rem)] font-body">
       {/* Scrollable Chat Area */}
       <div className="flex-1 overflow-y-auto px-2 py-4">
         <div className="mx-auto max-w-prose space-y-6">
@@ -185,6 +177,19 @@ export default function CitizenChatPage() {
                       ? 'আইন সংকলন অনুসন্ধান ও ধারা বিশ্লেষণ চলছে...'
                       : 'Retrieving codified statutes & generating cited answer...'}
                   </span>
+                </div>
+              )}
+              {chat.error && !chat.pending && (
+                <div
+                  role="alert"
+                  className="flex flex-wrap items-center gap-3 rounded border border-brick/30 bg-brick/5 py-3 pl-4 pr-3 text-xs text-brick"
+                >
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  <span className="flex-1 font-medium">{lang === 'bn' ? chat.error.bn : chat.error.en}</span>
+                  <Button size="sm" variant="secondary" onClick={chat.retry}>
+                    <RotateCcw className="mr-1 h-3.5 w-3.5" />
+                    {lang === 'bn' ? 'আবার চেষ্টা করুন' : 'Try again'}
+                  </Button>
                 </div>
               )}
               <div ref={endRef} />
@@ -297,8 +302,8 @@ export default function CitizenChatPage() {
                     </p>
                     <p className="text-clay-deep font-medium">
                       {lang === 'bn'
-                        ? 'bKash, Nagad বা Rocket-এ "Send Money" করে ট্রানজেকশন আইডি (TrxID) জমা দিন।'
-                        : 'Pay with bKash, Nagad or Rocket "Send Money", then submit the Transaction ID (TrxID).'}
+                        ? 'পেমেন্ট অনুরোধ নিশ্চিতকরণে আপনার bKash অ্যাপে পাঠানো হবে।'
+                        : 'Payment request will be sent to your bKash app upon confirmation.'}
                     </p>
                   </div>
                 </div>
@@ -330,11 +335,8 @@ export default function CitizenChatPage() {
       >
         <PaymentProcess
           amount={verifUrgency === 'urgent' ? 300 : 200}
-          titleEn="Verification Fee"
-          titleBn="যাচাই ফি পেমেন্ট"
-          tagEn={verifUrgency === 'urgent' ? 'Urgent' : 'Standard'}
-          tagBn={verifUrgency === 'urgent' ? 'জরুরি' : 'সাধারণ'}
-          onSubmit={handlePaymentSubmit}
+          urgency={verifUrgency}
+          onPaymentComplete={handlePaymentComplete}
           onCancel={handleCancelPayment}
         />
       </Modal>

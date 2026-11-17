@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { MapPin, CheckCircle2, Save, UserCheck } from 'lucide-react';
+import { Award, MapPin, CheckCircle2, Save, Sparkles, Building, UserCheck } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
 import { useRole } from '../../context/RoleContext';
 import { getLawyerById, updateLawyerProfile } from '../../lib/api';
-import { StatusBadge } from '../../components/ui/StatusBadge';
+import { StatusBadge, VerifiedBadge } from '../../components/ui/StatusBadge';
+import { Rating } from '../../components/ui/Rating';
 import { Input, Textarea } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { Skeleton } from '../../components/ui/EmptyState';
@@ -19,7 +20,8 @@ export default function LawyerProfileEditor() {
   const [savedToast, setSavedToast] = useState(false);
 
   useEffect(() => {
-    getLawyerById(user?.id || 'lawyer-1').then((res) => {
+    if (!user) return;
+    getLawyerById(user.id).then((res) => {
       if (res) setProfile(res);
       setLoading(false);
     });

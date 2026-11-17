@@ -12,12 +12,11 @@ import {
   Menu,
   X,
   LogOut,
-  Settings,
 } from 'lucide-react';
 import { useLang } from '../context/LanguageContext';
-import { LogoMark } from '../components/ui/Logo';
 import { useRole } from '../context/RoleContext';
 import { LanguageToggle } from '../components/ui/LanguageToggle';
+import { LogoMark } from '../components/ui/Logo';
 
 export function AdminLayout() {
   const { lang } = useLang();
@@ -35,7 +34,6 @@ export function AdminLayout() {
     { to: '/admin/users', labelBn: 'ইউজার তালিকা', labelEn: 'User Directory', icon: Users },
     { to: '/admin/flags', labelBn: 'রিপোর্টকৃত উত্তর', labelEn: 'Flagged Answers', icon: Flag },
     { to: '/admin/message-reports', labelBn: 'রিপোর্টকৃত বার্তা', labelEn: 'Reported Messages', icon: MessageSquareWarning },
-    { to: '/admin/settings', labelBn: 'অ্যাকাউন্ট সেটিংস', labelEn: 'Account Settings', icon: Settings },
   ];
 
   return (
@@ -55,7 +53,7 @@ export function AdminLayout() {
       >
         <div className="header-wood flex h-14 items-center justify-between px-4">
           <Link to="/admin" className="flex items-center gap-2">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-[#FDF6E8] p-0.5 shadow-sm"><LogoMark className="h-full w-full" /></span>
+            <LogoMark className="h-8 w-8" />
             <div className="flex flex-col">
               <span className="font-mono text-xs font-bold tracking-widest uppercase">LEGAL AI</span>
               <span className="text-[9px] text-bone/60 font-mono">ADMINISTRATION</span>

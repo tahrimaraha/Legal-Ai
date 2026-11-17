@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   Bot,
   ShieldCheck,
   CheckCircle2,
+  AlertTriangle,
   Clock,
   MessageSquare,
   Briefcase,
@@ -18,7 +19,8 @@ import type { VerificationRequest } from '../../mocks/types';
 
 export default function CitizenVerificationDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { lang } = useLang();
+  const { lang, num } = useLang();
+  const navigate = useNavigate();
   const [request, setRequest] = useState<VerificationRequest | null>(null);
   const [loading, setLoading] = useState(true);
 

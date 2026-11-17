@@ -17,7 +17,9 @@ import {
   MessageSquareText,
 } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
-import { getLawyerById, createConsultationRequest, listLawyerReviews, type ManualPayment } from '../../lib/api';
+import { getLawyerById, createConsultationRequest, listLawyerReviews, getLawyerOpenSlots, ApiError } from '../../lib/api';
+import { OpenSlotPicker, DateTimeFields } from '../../components/ui/SlotPicker';
+import { bdDate, slotProblem, formatSlot } from '../../lib/slots';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { Rating } from '../../components/ui/Rating';
 import { Button } from '../../components/ui/Button';
@@ -25,7 +27,7 @@ import { Modal } from '../../components/ui/Modal';
 import { PaymentProcess } from '../../components/ui/PaymentProcess';
 import { Input, Textarea } from '../../components/ui/Input';
 import { Skeleton, ErrorState, EmptyState } from '../../components/ui/EmptyState';
-import type { LawyerProfile, LawyerReview } from '../../mocks/types';
+import type { ConsultationSlot, LawyerProfile, LawyerReview } from '../../mocks/types';
 
 export default function CitizenLawyerProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -40,13 +42,16 @@ export default function CitizenLawyerProfilePage() {
   // Booking Modal State
   const [modalOpen, setModalOpen] = useState(false);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
-  const [, setBookingStep] = useState(0);
+  const [bookingStep, setBookingStep] = useState(0);
   const [topic, setTopic] = useState('');
   const [description, setDescription] = useState('');
   const [mode, setMode] = useState<'chat' | 'video' | 'in_person'>('video');
-  const [preferredDate, setPreferredDate] = useState('2025-05-20');
-  const [preferredTime, setPreferredTime] = useState('16:00');
-  const [, setBookingLoading] = useState(false);
+  // Lawyer's real open times; when they haven't published weekly hours the client proposes a time.
+  const [slotInfo, setSlotInfo] = useState<{ hasSchedule: boolean; slots: ConsultationSlot[] } | null>(null);
+  const [pickedSlot, setPickedSlot] = useState<ConsultationSlot | null>(null);
+  const [customSlot, setCustomSlot] = useState<ConsultationSlot>({ date: bdDate(1), time: '10:00' });
+  const [bookingError, setBookingError] = useState<string | null>(null);
+  const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(false);
 
   useEffect(() => {
@@ -63,6 +68,17 @@ export default function CitizenLawyerProfilePage() {
       });
     }
   }, [id]);
+
+  useEffect(() => {
+    if (!modalOpen || !lawyer) return;
+    setBookingError(null);
+    getLawyerOpenSlots(lawyer.id)
+      .then((info) => {
+        setSlotInfo(info);
+        setPickedSlot((cur) => (cur && info.slots.some((x) => x.date === cur.date && x.time === cur.time) ? cur : info.slots[0] || null));
+      })
+      .catch(() => setSlotInfo({ hasSchedule: false, slots: [] }));
+  }, [modalOpen, lawyer]);
 
   if (loading) {
     return <div className="space-y-6"><Skeleton className="h-40 w-full" /><Skeleton className="h-64 w-full" /></div>;
@@ -82,19 +98,23 @@ export default function CitizenLawyerProfilePage() {
 
   const selectedFee = lawyer.fees.find((f) => f.mode === mode)?.feeBdt || lawyer.startingFeeBdt;
 
+
+  const chosenSlot: ConsultationSlot | null = slotInfo?.hasSchedule ? pickedSlot : customSlot;
+
   const handleProceedToPayment = () => {
+    const problem = chosenSlot ? slotProblem(chosenSlot) : { en: 'Choose a time slot.', bn: 'একটি সময় নির্বাচন করুন।' };
+    if (problem) {
+      setBookingError(lang === 'bn' ? problem.bn : problem.en);
+      return;
+    }
+    setBookingError(null);
     setModalOpen(false);
     setPaymentModalOpen(true);
   };
 
-  // Creates the booking with the submitted TrxID; errors surface inside the payment form.
-  const handlePaymentSubmit = async (payment: ManualPayment) => {
-    await handleSubmitBooking(payment);
-    // Let the payment success state show briefly, then reopen the dialog on its success view.
-    setTimeout(() => {
-      setPaymentModalOpen(false);
-      setModalOpen(true);
-    }, 1500);
+  const handlePaymentComplete = () => {
+    setPaymentModalOpen(false);
+    handleSubmitBooking();
   };
 
   const handleCancelPayment = () => {
@@ -102,7 +122,7 @@ export default function CitizenLawyerProfilePage() {
     setModalOpen(true);
   };
 
-  const handleSubmitBooking = async (payment: ManualPayment) => {
+  const handleSubmitBooking = async () => {
     setBookingLoading(true);
     try {
       await createConsultationRequest({
@@ -111,10 +131,13 @@ export default function CitizenLawyerProfilePage() {
         description,
         mode,
         feeBdt: selectedFee,
-        slots: [{ date: preferredDate, time: preferredTime }],
-        payment,
+        slots: chosenSlot ? [chosenSlot] : [],
       });
       setBookingSuccess(true);
+    } catch (err) {
+      // e.g. the slot was taken meanwhile: reopen the form with the reason.
+      setBookingError(err instanceof ApiError ? (lang === 'bn' ? err.messageBn : err.message) : String(err));
+      setModalOpen(true);
     } finally {
       setBookingLoading(false);
     }
@@ -441,22 +464,27 @@ export default function CitizenLawyerProfilePage() {
               </div>
 
               {/* Date & Time Slot */}
-              <div className="grid grid-cols-2 gap-3">
-                <Input
-                  type="date"
-                  label={lang === 'bn' ? 'পছন্দের তারিখ' : 'Preferred Date'}
-                  value={preferredDate}
-                  onChange={(e) => setPreferredDate(e.target.value)}
-                  required
-                />
-                <Input
-                  type="time"
-                  label={lang === 'bn' ? 'পছন্দের সময়' : 'Preferred Time'}
-                  value={preferredTime}
-                  onChange={(e) => setPreferredTime(e.target.value)}
-                  required
-                />
-              </div>
+              {slotInfo === null ? (
+                <Skeleton className="h-24 w-full" />
+              ) : slotInfo.hasSchedule ? (
+                <OpenSlotPicker slots={slotInfo.slots} value={pickedSlot} onChange={setPickedSlot} lang={lang} />
+              ) : (
+                <div className="space-y-1.5">
+                  <DateTimeFields value={customSlot} onChange={setCustomSlot} lang={lang} />
+                  <p className="text-[11px] text-granite">
+                    {lang === 'bn'
+                      ? 'এই আইনজীবী নির্দিষ্ট সময়সূচি দেননি — আপনার পছন্দের সময় প্রস্তাব করুন, তিনি নিশ্চিত করবেন।'
+                      : "This lawyer hasn't published set hours — propose a time and they will confirm it."}
+                  </p>
+                </div>
+              )}
+              {chosenSlot && !slotProblem(chosenSlot) && (
+                <p className="text-xs text-ink-soft">
+                  {lang === 'bn' ? 'নির্বাচিত সময়: ' : 'Selected: '}
+                  <span className="font-semibold">{formatSlot(chosenSlot, lang)}</span>
+                </p>
+              )}
+              {bookingError && <p className="text-xs font-medium text-brick">{bookingError}</p>}
 
               {/* Fee acknowledgement */}
               <div className="p-3 bg-bone rounded border border-granite-soft flex items-center justify-between text-xs">
@@ -492,11 +520,8 @@ export default function CitizenLawyerProfilePage() {
       >
         <PaymentProcess
           amount={selectedFee}
-          titleEn="Consultation Fee"
-          titleBn="পরামর্শ ফি পেমেন্ট"
-          tagEn={lawyer.fullName}
-          tagBn={lawyer.fullNameBn || lawyer.fullName}
-          onSubmit={handlePaymentSubmit}
+          urgency="normal"
+          onPaymentComplete={handlePaymentComplete}
           onCancel={handleCancelPayment}
         />
       </Modal>

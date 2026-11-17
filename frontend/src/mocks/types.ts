@@ -16,9 +16,8 @@ export interface User {
   avatarUrl?: string;
   isVerified?: boolean;
   createdAt: string;
-  /** Lawyers only. The lawyer portal stays closed until this is "approved". */
-  lawyerStatus?: 'pending' | 'approved' | 'rejected' | 'suspended' | null;
-  lawyerRejectionReason?: string | null;
+  approvalStatus?: string; // For lawyers: 'pending', 'approved', 'rejected'
+  suspended?: boolean; // Admin user directory only
 }
 
 export type StatuteStatus = 'live' | 'indexing' | 'planned';
@@ -374,7 +373,7 @@ export interface CorpusDocument {
 export interface AppNotification {
   id: string;
   userId: string;
-  type: 'verification_requested' | 'verification_completed' | 'consultation_accepted' | 'consultation_scheduled' | 'new_message' | 'statute_updated' | 'system';
+  type: 'verification_completed' | 'consultation_accepted' | 'consultation_scheduled' | 'new_message' | 'statute_updated' | 'system';
   titleBn: string;
   titleEn: string;
   bodyBn: string;

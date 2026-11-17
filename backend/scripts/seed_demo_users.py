@@ -1,7 +1,4 @@
-"""Seed the demo accounts used by the frontend's "Quick Demo Login" buttons.
-
-There is deliberately no demo admin: admins come from ADMIN_EMAILS via
-`python -m scripts.set_admins`.
+"""Seed the admin account.
 
 Idempotent — safe to run multiple times; existing emails are skipped. Run with:
     python -m scripts.seed_demo_users
@@ -23,17 +20,10 @@ DEMO_PASSWORD = "demo-password-123"
 
 DEMO_USERS = [
     {
-        "email": "citizen@example.com",
-        "full_name": "Demo Citizen",
-        "role": UserRole.CITIZEN,
-        "district": "Dhaka",
-    },
-    {
-        "email": "advocate.rafiq@example.com",
-        "full_name": "Advocate Md. Rafiqul Islam",
-        "role": UserRole.LAWYER,
-        "district": "Dhaka",
-        "bar_council_enrollment_no": "BC/DH/2010/00001",
+        "email": "tahrima.jahan.raha@gmail.com",
+        "full_name": "Tahrima Admin",
+        "role": UserRole.ADMIN,
+        "district": None,
     },
 ]
 

@@ -1,24 +1,21 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { User, UserRole } from '../mocks/types';
-import { getCurrentUser, loginUser, UNAUTHORIZED_EVENT } from '../lib/api';
-
-const TOKEN_KEY = 'legal_ai_token';
-const ROLE_KEY = 'legal_ai_role';
-
-/** Seeded demo accounts (backend/scripts/seed_demo_users.py) used by the dev role switcher.
- *  There is no demo admin — admins are the fixed accounts in the backend's ADMIN_EMAILS. */
-const DEMO_ACCOUNTS: Partial<Record<UserRole, string>> = {
-  citizen: 'citizen@example.com',
-  lawyer: 'advocate.rafiq@example.com',
-};
-const DEMO_PASSWORD = 'demo-password-123';
+import { getCurrentUser, logoutSession, SESSION_ENDED_EVENT } from '../lib/api';
+import {
+  clearSession,
+  getSessionRole,
+  getSessionToken,
+  getSessionUserId,
+  saveSession,
+  saveSessionRole,
+} from '../lib/session';
 
 interface RoleContextValue {
   role: UserRole;
   user: User | null;
   token: string | null;
-  /** False while a stored session is being restored from the backend. */
-  ready: boolean;
+  /** True while a stored session token is being checked against the backend. */
+  loading: boolean;
   setRole: (role: UserRole) => void;
   login: (user: User, token: string) => void;
   logout: () => void;
@@ -27,69 +24,70 @@ interface RoleContextValue {
 const RoleContext = createContext<RoleContextValue | undefined>(undefined);
 
 export function RoleProvider({ children }: { children: ReactNode }) {
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_KEY));
-  const [role, setRoleState] = useState<UserRole>(() =>
-    token ? ((localStorage.getItem(ROLE_KEY) as UserRole) || 'guest') : 'guest',
-  );
+  // Without a session token the visitor is a guest; with one, the real user is fetched below.
+  const [token, setToken] = useState<string | null>(() => getSessionToken());
+  const [role, setRoleState] = useState<UserRole>(() => (getSessionRole() as UserRole) || 'guest');
   const [user, setUser] = useState<User | null>(null);
-  const [ready, setReady] = useState(() => !token);
+  const [loading, setLoading] = useState<boolean>(() => !!getSessionToken());
 
-  const login = useCallback((newUser: User, newToken: string) => {
+  // On first load, a stored token means a real session — fetch the current user from the backend.
+  useEffect(() => {
+    const storedToken = getSessionToken();
+    if (!storedToken) return;
+    getCurrentUser() // renews an expired access token from the session cookie if needed
+      .then((freshUser) => {
+        setUser(freshUser);
+        setRoleState(freshUser.role);
+        saveSessionRole(freshUser.role);
+      })
+      .catch(() => {
+        clearSession();
+        setToken(null);
+        setRoleState('guest');
+      })
+      .finally(() => setLoading(false));
+    // Runs once on mount only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const setRole = (newRole: UserRole) => {
+    setRoleState(newRole);
+    saveSessionRole(newRole);
+    if (newRole === 'guest') {
+      setUser(null);
+    }
+  };
+
+  const login = (newUser: User, newToken: string) => {
     setUser(newUser);
     setRoleState(newUser.role);
     setToken(newToken);
-    setReady(true);
-    localStorage.setItem(ROLE_KEY, newUser.role);
-    localStorage.setItem(TOKEN_KEY, newToken);
-  }, []);
+    saveSession(newToken, newUser.role, newUser.id);
+  };
 
-  const logout = useCallback(() => {
+  const signOutLocally = () => {
     setUser(null);
     setRoleState('guest');
     setToken(null);
-    setReady(true);
-    localStorage.setItem(ROLE_KEY, 'guest');
-    localStorage.removeItem(TOKEN_KEY);
-  }, []);
-
-  // A stored token means a previous session — restore the user from the backend.
-  useEffect(() => {
-    const storedToken = localStorage.getItem(TOKEN_KEY);
-    if (!storedToken) return;
-    getCurrentUser(storedToken)
-      .then((freshUser) => login(freshUser, storedToken))
-      .catch(logout);
-  }, [login, logout]);
-
-  // Any request rejected with 401 means the session expired.
-  useEffect(() => {
-    window.addEventListener(UNAUTHORIZED_EVENT, logout);
-    return () => window.removeEventListener(UNAUTHORIZED_EVENT, logout);
-  }, [logout]);
-
-  // Dev role switcher: sign in as that role's demo account.
-  const setRole = (newRole: UserRole) => {
-    const email = DEMO_ACCOUNTS[newRole];
-    if (!email) {
-      logout();
-      return;
-    }
-    loginUser(email, DEMO_PASSWORD).then((res) => login(res.user, res.token)).catch(logout);
+    clearSession();
   };
 
+  const logout = () => {
+    void logoutSession(getSessionUserId()); // revoke the server session (cookie) too
+    signOutLocally();
+  };
+
+  // The session could not be renewed (expired / revoked elsewhere): sign this tab out.
   useEffect(() => {
-    const handleStorage = () => {
-      const stored = localStorage.getItem(ROLE_KEY) as UserRole;
-      if (stored && stored !== role) {
-        setRoleState(stored);
-      }
-    };
-    window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
-  }, [role]);
+    const onEnded = () => signOutLocally();
+    window.addEventListener(SESSION_ENDED_EVENT, onEnded);
+    return () => window.removeEventListener(SESSION_ENDED_EVENT, onEnded);
+  }, []);
+
+  // Note: no cross-tab syncing on purpose — each tab stays signed in as the account it started with.
 
   return (
-    <RoleContext.Provider value={{ role, user, token, ready, setRole, login, logout }}>
+    <RoleContext.Provider value={{ role, user, token, loading, setRole, login, logout }}>
       {children}
     </RoleContext.Provider>
   );

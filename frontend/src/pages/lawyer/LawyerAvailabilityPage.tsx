@@ -1,23 +1,30 @@
 import { useEffect, useState } from 'react';
-import { CheckCircle2, Save } from 'lucide-react';
+import { Clock, Calendar, CheckCircle2, AlertCircle, Save } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
 import { Button } from '../../components/ui/Button';
-import { getMyAvailability, saveMyAvailability } from '../../lib/api';
+import { ApiError, getMyAvailability, saveMyAvailability } from '../../lib/api';
 
 export default function LawyerAvailabilityPage() {
   const { lang } = useLang();
   const [vacationMode, setVacationMode] = useState(false);
+  const [maxActiveConsultations, setMaxActiveConsultations] = useState(5);
   const [saved, setSaved] = useState(false);
 
   // Weekly availability grid
   const days = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'];
   const [selectedSlots, setSelectedSlots] = useState<Record<string, boolean>>({});
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    getMyAvailability().then((a) => {
-      setSelectedSlots(Object.fromEntries(a.slots.map((key) => [key, true])));
-      setVacationMode(a.vacationMode);
-    });
+    getMyAvailability()
+      .then((a) => {
+        setVacationMode(a.vacationMode);
+        setMaxActiveConsultations(a.maxActiveConsultations);
+        setSelectedSlots(Object.fromEntries(a.slots.map((slot) => [slot, true])));
+      })
+      .catch(() => setError(lang === 'bn' ? 'সময়সূচি লোড করা যায়নি' : 'Could not load your availability'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const toggleSlot = (day: string, time: string) => {
@@ -28,12 +35,21 @@ export default function LawyerAvailabilityPage() {
   const times = ['10:00', '11:30', '14:00', '16:00', '17:30', '19:00'];
 
   const handleSave = async () => {
-    await saveMyAvailability({
-      slots: Object.keys(selectedSlots).filter((key) => selectedSlots[key]),
-      vacationMode,
-    });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setSaving(true);
+    setError('');
+    try {
+      await saveMyAvailability({
+        vacationMode,
+        maxActiveConsultations,
+        slots: Object.keys(selectedSlots).filter((key) => selectedSlots[key]),
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      setError(err instanceof ApiError ? (lang === 'bn' ? err.messageBn : err.message) : 'Could not save');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -50,11 +66,13 @@ export default function LawyerAvailabilityPage() {
           </p>
         </div>
 
-        <Button size="sm" variant="primary" onClick={handleSave}>
+        <Button size="sm" variant="primary" onClick={handleSave} loading={saving}>
           <Save className="mr-1.5 h-3.5 w-3.5" />
           <span>Save Availability</span>
         </Button>
       </div>
+
+      {error && <div className="p-2.5 rounded bg-brick/10 border border-brick/30 text-xs text-brick font-medium">{error}</div>}
 
       {saved && (
         <div className="p-3 rounded bg-clay-tint border border-clay text-xs text-clay-deep font-semibold flex items-center gap-2">

@@ -8,7 +8,6 @@ import { Sidebar } from '../components/chat/Sidebar';
 import { BalanceScale } from '../components/ui/BalanceScale';
 import { Disclaimer } from '../components/ui/Disclaimer';
 import { useLang } from '../context/LanguageContext';
-import { LogoMark } from '../components/ui/Logo';
 import { EASE_SETTLE } from '../lib/motion';
 import { useChat } from '../lib/useChat';
 import type { Citation, Conversation } from '../mocks/types';
@@ -93,7 +92,7 @@ export default function Chat() {
           >
             {sidebarOpen ? <X className="h-4 w-4" /> : <PanelLeft className="h-4 w-4" />}
           </button>
-          <span className="inline-flex items-center gap-2"><LogoMark className="h-7 w-7" /><span className="font-display text-[1rem] tracking-[0.08em] text-ink">LEGAL AI</span></span>
+          <span className="font-display text-[1rem] tracking-[0.08em] text-ink">LEGAL AI</span>
         </div>
 
         <main className="flex-1 overflow-y-auto" id="main">

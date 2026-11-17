@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowRight, ArrowLeft, CheckCircle2, FileCheck, Upload, FileText, X, AlertCircle } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { ArrowRight, ArrowLeft, CheckCircle2, Shield, User, Award, Briefcase, FileCheck, Upload, FileText, X, AlertCircle } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
 import { ApiError, registerLawyer } from '../../lib/api';
 import { Input, Textarea } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { ProgressRail } from '../../components/ui/ProgressRail';
+import { PasswordChecklist } from '../../components/ui/PasswordChecklist';
+import { passwordIsValid } from '../../lib/password';
 
 export default function LawyerSignUpPage() {
   const { lang, num } = useLang();
@@ -76,8 +78,8 @@ export default function LawyerSignUpPage() {
         setError(lang === 'bn' ? 'অনুগ্রহ করে সকল তথ্য পূরণ করুন' : 'Please fill all identity fields');
         return;
       }
-      if (formData.password.length < 8) {
-        setError(lang === 'bn' ? 'পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে' : 'Password must be at least 8 characters');
+      if (!passwordIsValid(formData.password, formData.email)) {
+        setError(lang === 'bn' ? 'পাসওয়ার্ডটি নিচের সব শর্ত পূরণ করেনি' : 'Your password doesn’t meet all the requirements below');
         return;
       }
     } else if (step === 1) {
@@ -103,10 +105,8 @@ export default function LawyerSignUpPage() {
     setError('');
     try {
       const res = await registerLawyer(formData);
-      navigate(
-        `/verify-email?${new URLSearchParams({ email: res.user.email ?? formData.email, next: '/signup/lawyer/pending' })}`,
-        { state: { devCode: res.devVerificationCode ?? null } },
-      );
+      // Verify the email first; after signing in, unapproved lawyers see the pending page.
+      navigate('/verify-email', { state: { email: res.email } });
     } catch (err) {
       if (err instanceof ApiError) {
         setError(lang === 'bn' ? err.messageBn : err.message);
@@ -211,8 +211,10 @@ export default function LawyerSignUpPage() {
             placeholder="••••••••"
             value={formData.password}
             onChange={(e) => updateField('password', e.target.value)}
+            autoComplete="new-password"
             required
           />
+          <PasswordChecklist password={formData.password} email={formData.email} lang={lang} />
         </div>
       )}
 

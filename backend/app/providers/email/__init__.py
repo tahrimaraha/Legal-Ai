@@ -1,11 +1,22 @@
-"""Minimal email provider used for OTP delivery.
+"""Outgoing email.
 
-Only the "console" provider (the default in Settings.email_provider) is
-implemented: it logs the message via structlog instead of sending real mail.
-That is sufficient for local/dev use — swap in a real SMTP/API-based
-provider here once one is needed.
+Providers (``EMAIL_PROVIDER``):
+  * ``smtp``    — real delivery through any SMTP server (Gmail, Outlook, SendGrid, Brevo, Mailgun …).
+  * ``console`` — development only: logs the message and writes it to ``DEV_MAIL_OUTBOX`` as a
+                  ``.eml`` file you can open in any mail app. Refused when ``APP_ENV=production``.
+
+Sending is blocking I/O, so callers use :func:`deliver` (runs in a worker thread) — usually from a
+FastAPI background task so the HTTP response never waits on, or leaks timing from, the mail server.
 """
 from __future__ import annotations
+
+import asyncio
+import smtplib
+import ssl
+import time
+from email.message import EmailMessage
+from email.utils import formataddr, make_msgid
+from pathlib import Path
 
 from app.config import settings
 from app.core.logging import get_logger
@@ -13,22 +24,66 @@ from app.core.logging import get_logger
 logger = get_logger(__name__)
 
 
-def send_email(to: str, subject: str, body: str) -> None:
-    if settings.email_provider == "console":
-        logger.info("email_dispatched", provider="console", to=to, subject=subject, body=body)
-        return
-    raise NotImplementedError(f"Email provider '{settings.email_provider}' is not implemented.")
+def _build(to: str, subject: str, text: str, html: str | None) -> EmailMessage:
+    msg = EmailMessage()
+    msg["From"] = formataddr((settings.smtp_from_name, settings.smtp_from_email))
+    msg["To"] = to
+    msg["Subject"] = subject
+    msg["Message-ID"] = make_msgid(domain=settings.smtp_from_email.split("@")[-1] or "legalai.local")
+    msg.set_content(text)
+    if html:
+        msg.add_alternative(html, subtype="html")
+    return msg
 
 
-def send_otp_email(to: str, code: str, purpose: str) -> None:
-    logger.info("otp_issued", to=to, purpose=purpose, expires_in_minutes=settings.otp_ttl_minutes)
-    if purpose == "RESET_PASSWORD":
-        subject = "Your Legal AI password reset code"
-        body = (
-            f"Your password reset code is {code}. It expires in {settings.otp_ttl_minutes} minutes. "
-            "If you didn't ask to reset your password, you can ignore this email."
-        )
+def _send_smtp(msg: EmailMessage) -> None:
+    if not settings.smtp_host:
+        raise RuntimeError("EMAIL_PROVIDER=smtp but SMTP_HOST is empty.")
+    context = ssl.create_default_context()
+    if settings.smtp_port == 465:  # implicit TLS
+        server: smtplib.SMTP = smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, timeout=20, context=context)
     else:
-        subject = "Your Legal AI verification code"
-        body = f"Your verification code is {code}. It expires in {settings.otp_ttl_minutes} minutes."
-    send_email(to=to, subject=subject, body=body)
+        server = smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=20)
+    with server:
+        server.ehlo()
+        if settings.smtp_port != 465 and settings.smtp_use_tls:
+            server.starttls(context=context)
+            server.ehlo()
+        if settings.smtp_user:
+            server.login(settings.smtp_user, settings.smtp_password)
+        server.send_message(msg)
+
+
+def _send_console(msg: EmailMessage) -> Path:
+    if settings.app_env.lower() == "production":
+        raise RuntimeError("EMAIL_PROVIDER=console is for development only; configure SMTP for production.")
+    outbox = Path(settings.dev_mail_outbox)
+    outbox.mkdir(parents=True, exist_ok=True)
+    safe_to = "".join(c if c.isalnum() or c in "@._-" else "_" for c in str(msg["To"]))
+    path = outbox / f"{time.strftime('%Y%m%d-%H%M%S')}-{time.time_ns() % 1_000_000:06d}-{safe_to}.eml"
+    path.write_bytes(bytes(msg))
+    return path
+
+
+def send_email(to: str, subject: str, text: str, html: str | None = None) -> None:
+    """Send one email synchronously. Raises on failure."""
+    msg = _build(to, subject, text, html)
+    provider = settings.email_provider.lower()
+    if provider == "smtp":
+        _send_smtp(msg)
+        logger.info("email_sent", provider="smtp", to=to, subject=subject)
+    elif provider == "console":
+        path = _send_console(msg)
+        logger.info("email_written_to_outbox", provider="console", to=to, subject=subject, file=str(path))
+    else:
+        raise RuntimeError(f"Unknown EMAIL_PROVIDER '{settings.email_provider}'. Use 'smtp' or 'console'.")
+
+
+async def deliver(to: str, subject: str, text: str, html: str | None = None) -> bool:
+    """Send without blocking the event loop. Never raises: failures are logged (the user can resend)."""
+    try:
+        await asyncio.to_thread(send_email, to, subject, text, html)
+        return True
+    except Exception as exc:  # noqa: BLE001 - a mail outage must not crash the request
+        logger.error("email_send_failed", to=to, subject=subject, error=f"{type(exc).__name__}: {exc}")
+        return False

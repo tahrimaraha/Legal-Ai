@@ -30,7 +30,6 @@ from app.models.enums import (
     CredentialStatus,
     Gender,
     LawyerApprovalStatus,
-    PaymentMethod,
 )
 
 gender_enum = ENUM(Gender, name="gender", values_callable=lambda e: [m.value for m in e])
@@ -97,24 +96,7 @@ class LawyerProfile(TimestampMixin, Base):
         DateTime(timezone=True), nullable=True
     )
     rejection_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    # Wallet the admin sends this lawyer's earnings to (bKash / Nagad / Rocket + number).
     payout_msisdn: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
-    payout_method: Mapped[Optional[PaymentMethod]] = mapped_column(
-        ENUM(PaymentMethod, name="payment_method", values_callable=lambda e: [m.value for m in e], create_type=False),
-        nullable=True,
-    )
-    full_name_bn: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    title_en: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    title_bn: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    district_bn: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    courts: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False, default=list)
-    courts_bn: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False, default=list)
-    education: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False, default=list)
-    education_bn: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False, default=list)
-    response_time_en: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
-    response_time_bn: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
-    is_available_today: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    away_notice: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     specializations: Mapped[list["LawyerSpecialization"]] = relationship(
         back_populates="lawyer", cascade="all, delete-orphan"

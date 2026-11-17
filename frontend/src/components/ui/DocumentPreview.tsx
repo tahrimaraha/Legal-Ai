@@ -24,20 +24,20 @@ export function DocumentPreview({ title, body, status, onDownload, onShare }: Do
   return (
     <div className="flex flex-col h-full rounded border border-granite bg-white shadow-sm overflow-hidden font-body">
       {/* Header bar */}
-      <div className="flex items-center justify-between border-b border-granite-soft bg-bone px-4 py-3">
-        <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-clay" />
-          <span className="font-mono text-xs uppercase font-semibold text-ink truncate max-w-xs">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-granite-soft bg-bone px-4 py-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <span className="h-2 w-2 shrink-0 rounded-full bg-clay" />
+          <span className="min-w-0 truncate font-mono text-xs uppercase font-semibold text-ink" title={title}>
             {title}
           </span>
           {status && (
-            <span className="font-mono text-[10px] uppercase bg-clay-tint text-clay-deep px-1.5 py-0.5 rounded border border-clay/20">
+            <span className="shrink-0 whitespace-nowrap font-mono text-[10px] uppercase bg-clay-tint text-clay-deep px-1.5 py-0.5 rounded border border-clay/20">
               {status}
             </span>
           )}
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex shrink-0 flex-wrap items-center gap-1.5 [&>button]:whitespace-nowrap">
           <Button size="sm" variant="ghost" onClick={handleCopy}>
             {copied ? <Check className="h-3.5 w-3.5 text-clay-deep mr-1" /> : <Copy className="h-3.5 w-3.5 mr-1" />}
             <span>{copied ? (lang === 'bn' ? 'কপি হয়েছে' : 'Copied') : (lang === 'bn' ? 'কপি' : 'Copy')}</span>

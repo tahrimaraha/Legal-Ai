@@ -1,3 +1,9 @@
+import { useState } from 'react';
+import { useLang } from '../context/LanguageContext';
+import { Accordion } from '../components/ui/Accordion';
+import { BalanceScale } from '../components/ui/BalanceScale';
+import { Button } from '../components/ui/Button';
+import { CitationChip } from '../components/ui/CitationChip';
 import { StatusBadge, VerifiedBadge } from '../components/ui/StatusBadge';
 import { Rating } from '../components/ui/Rating';
 import { Timeline } from '../components/ui/Timeline';
@@ -5,10 +11,13 @@ import { ProgressRail } from '../components/ui/ProgressRail';
 import { StatCard } from '../components/ui/StatCard';
 import { EmptyState, ErrorState } from '../components/ui/EmptyState';
 import { DocumentPreview } from '../components/ui/DocumentPreview';
-import { Input } from '../components/ui/Input';
+import { Input, Textarea } from '../components/ui/Input';
+import { Disclaimer } from '../components/ui/Disclaimer';
 import { LanguageToggle } from '../components/ui/LanguageToggle';
 import { Logo } from '../components/ui/Logo';
 import { RoleSwitcher } from '../components/ui/RoleSwitcher';
+import { citations } from '../mocks/citations';
+import type { Citation } from '../mocks/types';
 
 const tokens = [
   'bg-ink',
@@ -25,6 +34,8 @@ const tokens = [
 ];
 
 export default function KitchenSink() {
+  const { lang, t } = useLang();
+  const [open, setOpen] = useState<Citation | null>(null);
 
   return (
     <div className="min-h-[100dvh] bg-bone pb-20 font-body">

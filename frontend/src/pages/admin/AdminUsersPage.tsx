@@ -1,23 +1,46 @@
 import { useEffect, useState } from 'react';
-import { Search, UserCheck } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Search, UserCheck, ShieldAlert, Ban, CheckCircle2 } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
-import { listAdminUsers } from '../../lib/api';
 import type { User } from '../../mocks/types';
+import { ApiError, listAdminUsers, setUserSuspended } from '../../lib/api';
 import { Button } from '../../components/ui/Button';
 
 export default function AdminUsersPage() {
   const { lang } = useLang();
   const [users, setUsers] = useState<User[]>([]);
+  const [searchParams] = useSearchParams();
+  const [roleFilter, setRoleFilter] = useState(() => {
+    const role = searchParams.get('role');
+    return role && ['citizen', 'lawyer', 'admin'].includes(role) ? role : 'all';
+  });
+  const [search, setSearch] = useState('');
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    listAdminUsers().then(setUsers);
+    listAdminUsers()
+      .then(setUsers)
+      .catch(() => setError(lang === 'bn' ? 'ব্যবহারকারী তালিকা লোড করা যায়নি' : 'Could not load users'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const [roleFilter, setRoleFilter] = useState('all');
-  const [search, setSearch] = useState('');
+
+  const toggleSuspended = async (u: User) => {
+    setBusyId(u.id);
+    setError('');
+    try {
+      const updated = await setUserSuspended(u.id, !u.suspended);
+      setUsers((prev) => prev.map((x) => (x.id === u.id ? updated : x)));
+    } catch (err) {
+      setError(err instanceof ApiError ? (lang === 'bn' ? err.messageBn : err.message) : 'Action failed');
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const filtered = users.filter((u) => {
     const matchesRole = roleFilter === 'all' || u.role === roleFilter;
-    const matchesSearch = u.name.toLowerCase().includes(search.toLowerCase()) || (u.email || '').toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase());
     return matchesRole && matchesSearch;
   });
 
@@ -33,6 +56,8 @@ export default function AdminUsersPage() {
             : 'Manage citizen, advocate, and administrative accounts'}
         </p>
       </div>
+
+      {error && <div className="p-2.5 rounded bg-brick/10 border border-brick/30 text-xs text-brick font-medium">{error}</div>}
 
       {/* Filter Row */}
       <div className="flex flex-col sm:flex-row items-center gap-4 bg-white p-4 rounded border border-granite shadow-sm">
@@ -65,7 +90,7 @@ export default function AdminUsersPage() {
       </div>
 
       {/* User Table */}
-      <div className="border border-granite rounded bg-white shadow-sm overflow-hidden">
+      <div className="border border-granite rounded bg-white shadow-sm overflow-x-auto">
         <table className="w-full text-xs text-left border-collapse">
           <thead className="bg-bone-deep border-b border-granite font-mono uppercase text-clay-deep">
             <tr>
@@ -78,6 +103,13 @@ export default function AdminUsersPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-granite-soft">
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={6} className="p-6 text-center text-granite">
+                  {lang === 'bn' ? 'কোনো ব্যবহারকারী পাওয়া যায়নি' : 'No users to show'}
+                </td>
+              </tr>
+            )}
             {filtered.map((u) => (
               <tr key={u.id} className="hover:bg-bone/40 transition">
                 <td className="p-3 font-semibold text-ink flex items-center gap-2">
@@ -85,6 +117,11 @@ export default function AdminUsersPage() {
                     <UserCheck className="h-4 w-4 text-clay-deep" />
                   </div>
                   <span>{u.name}</span>
+                  {u.suspended && (
+                    <span className="font-mono text-[10px] uppercase bg-brick/10 text-brick px-1.5 py-0.5 rounded border border-brick/30">
+                      {lang === 'bn' ? 'স্থগিত' : 'Suspended'}
+                    </span>
+                  )}
                 </td>
                 <td className="p-3 font-mono text-ink-soft">{u.email}</td>
                 <td className="p-3">
@@ -92,12 +129,14 @@ export default function AdminUsersPage() {
                     {u.role}
                   </span>
                 </td>
-                <td className="p-3 text-ink-soft">{u.district || 'Dhaka'}</td>
+                <td className="p-3 text-ink-soft">{u.district || '—'}</td>
                 <td className="p-3 font-mono text-granite">{new Date(u.createdAt).toLocaleDateString()}</td>
                 <td className="p-3 text-right">
-                  <Button size="sm" variant="ghost" onClick={() => alert(`Action executed for user ${u.name}`)}>
-                    <span>Suspend</span>
-                  </Button>
+                  {u.role !== 'admin' && (
+                    <Button size="sm" variant="ghost" loading={busyId === u.id} onClick={() => toggleSuspended(u)}>
+                      <span>{u.suspended ? (lang === 'bn' ? 'পুনরায় চালু' : 'Reactivate') : (lang === 'bn' ? 'স্থগিত' : 'Suspend')}</span>
+                    </Button>
+                  )}
                 </td>
               </tr>
             ))}

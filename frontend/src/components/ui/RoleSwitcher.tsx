@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { User, Briefcase, UserCheck, ChevronUp, ChevronDown } from 'lucide-react';
+import { Shield, User, Briefcase, UserCheck, ChevronUp, ChevronDown } from 'lucide-react';
 import { useRole } from '../../context/RoleContext';
 import { useLang } from '../../context/LanguageContext';
 import type { UserRole } from '../../mocks/types';
@@ -16,10 +16,11 @@ export function RoleSwitcher() {
   const roles: { key: UserRole; labelEn: string; labelBn: string; icon: typeof User; defaultRoute: string }[] = [
     { key: 'citizen', labelEn: 'Citizen App', labelBn: 'নাগরিক সারফেস', icon: User, defaultRoute: '/app' },
     { key: 'lawyer', labelEn: 'Lawyer Portal', labelBn: 'আইনজীবী পোর্টাল', icon: Briefcase, defaultRoute: '/lawyer' },
+    { key: 'admin', labelEn: 'Admin Console', labelBn: 'অ্যাডমিন কনসোল', icon: Shield, defaultRoute: '/admin' },
     { key: 'guest', labelEn: 'Public / Guest', labelBn: 'পাবলিক ভিজিটর', icon: UserCheck, defaultRoute: '/' },
   ];
 
-  const handleSelectRole = (newRole: UserRole, _targetRoute: string) => {
+  const handleSelectRole = (newRole: UserRole, targetRoute: string) => {
     setRole(newRole);
     setOpen(false);
     // If switching surface, navigate to default for that role if not currently on valid surface

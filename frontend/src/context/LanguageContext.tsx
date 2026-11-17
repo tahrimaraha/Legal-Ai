@@ -14,13 +14,27 @@ interface LanguageValue {
 
 const BN_DIGITS = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
 
+const LANG_KEY = 'legal_ai_lang';
+
 const LanguageContext = createContext<LanguageValue | null>(null);
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Lang>('bn');
+  // English by default; a visitor's own choice is remembered on this device.
+  const [lang, setLangState] = useState<Lang>(() => {
+    try {
+      return localStorage.getItem(LANG_KEY) === 'bn' ? 'bn' : 'en';
+    } catch {
+      return 'en';
+    }
+  });
 
   useEffect(() => {
     document.documentElement.lang = lang;
+    try {
+      localStorage.setItem(LANG_KEY, lang);
+    } catch {
+      /* storage unavailable (private mode): the choice just isn't remembered */
+    }
   }, [lang]);
 
   const setLang = useCallback((l: Lang) => setLangState(l), []);

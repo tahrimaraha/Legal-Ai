@@ -23,10 +23,6 @@ class DocumentTemplate(UUIDPkMixin, TimestampMixin, Base):
     title_bn: Mapped[str] = mapped_column(String(255), nullable=False)
     title_en: Mapped[str] = mapped_column(String(255), nullable=False)
     jurisdiction: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
-    category_bn: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
-    category_en: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
-    description_bn: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    description_en: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     body_template: Mapped[str] = mapped_column(Text, nullable=False)
     field_schema: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     related_act_ids: Mapped[list[uuid.UUID]] = mapped_column(
@@ -51,7 +47,6 @@ class DraftDocument(UUIDPkMixin, TimestampMixin, Base):
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     answers: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     generated_body: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    generated_body_en: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     status: Mapped[DraftStatus] = mapped_column(
         draft_status_enum, nullable=False, default=DraftStatus.DRAFT

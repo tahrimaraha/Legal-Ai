@@ -114,18 +114,11 @@ GET /lawyers?area=&district=&verifiedOnly=&maxFee=
 Response: LawyerProfile[]
 
 GET /lawyers/:id
-Response: LawyerProfile
+Response: LawyerProfile & { reviews: Review[] }
 
-GET /lawyers/:id/reviews
-Response: LawyerReview[]
-
-PATCH /lawyers/me                      (lawyer)
+PATCH /lawyers/me
 Body: Partial<LawyerProfile>
 Response: LawyerProfile
-
-GET /lawyers/me/availability           (lawyer)
-PUT /lawyers/me/availability
-Body/Response: { "slots": ["Sunday-16:00", ...], "vacationMode": false }
 
 POST /verifications
 Body: {
@@ -139,21 +132,19 @@ Body: {
 Response: VerificationRequest
 
 GET /verifications
-Response: VerificationRequest[]   (citizen: own · lawyer: assigned to them · admin: all)
+Response: VerificationRequest[]
 
 GET /verifications/:id
 Response: VerificationRequest & { verdict?: VerificationVerdict }
 
-POST /verifications/:id/assign         (admin)
-Body: { "lawyerId": "..." }
+POST /verifications/:id/claim
+Body: { "lawyerId": "...", "lawyerName": "..." }
 Response: VerificationRequest
 
-POST /verifications/:id/decline        (admin)
-Body: { "reason": "..." }
-Response: VerificationRequest
-
-POST /verifications/:id/verdict        (the assigned lawyer)
+POST /verifications/:id/verdict
 Body: {
+  "lawyerId": "...",
+  "lawyerName": "...",
   "verdict": "accurate" | "incomplete" | "needs_correction" | "incorrect",
   "correctedExplanationBn": "...",
   "correctedExplanationEn": "...",
@@ -188,10 +179,6 @@ Response: ConsultationRequest[]
 GET /consultations/:id
 Response: ConsultationRequest
 
-PATCH /consultations/:id               (citizen, while requested)
-Body: { "topic": "...", "description": "..." }
-Response: ConsultationRequest
-
 POST /consultations/:id/accept
 Body: { "slot"?: { "date": "...", "time": "..." } }
 Response: ConsultationRequest
@@ -215,30 +202,8 @@ GET /threads/:id
 Response: Thread & { messages: ThreadMessage[] }
 
 POST /threads/:id/messages
-Body: { "text": "..." }                (sender is the signed-in user)
+Body: { "text": "...", "senderRole": "citizen" | "lawyer" }
 Response: Thread
-
-POST /meetings                         (lawyer)
-Body: { "citizenId": "...", "title": "...", "threadId"?: "..." }
-Response: Meeting                      (password only returned to the host)
-
-GET /meetings/:code
-POST /meetings/join
-Body: { "code": "abc-defg-hij", "password": "123456" }
-Response: { "ok": boolean, "meeting"?: Meeting, "error"?: "..." }
-
-POST /meetings/:id/end                 (host lawyer)
-Response: Meeting
-
-POST /reports
-Body: { "threadId": "...", "messageId": "...", "reasonCategory": "...", "reasonDetails"?: "..." }
-Response: MessageReport
-
-GET /notifications
-Response: AppNotification[]
-
-POST /notifications/read
-Response: { "ok": true }
 ```
 
 ---
@@ -266,13 +231,8 @@ Response: DraftDocument
 
 ## 7. Admin Console
 ```http
-Every `/admin/*` route requires the admin role.
-
 GET /admin/stats
 Response: AdminStats
-
-GET /admin/users
-Response: User[]
 
 GET /admin/lawyers
 Response: LawyerProfile[]
@@ -287,13 +247,9 @@ Response: LawyerProfile
 GET /admin/corpus
 Response: CorpusDocument[]
 
-POST /admin/payouts
-Body: { "type": "verification" | "consultation", "id": "..." }
-Response: { "ok": true }
-
 POST /admin/corpus/upload
-Multipart file upload: { file (PDF), statuteId }
-Response: CorpusDocument               (text extracted and chunked before responding)
+Multipart file upload: { file, statuteId }
+Response: CorpusDocument
 
 POST /admin/corpus/reindex
 Response: { "ok": true, "message": "Index rebuilt" }
@@ -303,12 +259,5 @@ Response: FlaggedAnswer[]
 
 POST /admin/flags/:id/resolve
 Body: { "action": "dismiss" | "escalate" | "corpus_issue" }
-Response: { "ok": true }
-
-GET /admin/message-reports
-Response: MessageReport[]
-
-POST /admin/message-reports/:id/resolve
-Body: { "action": "dismiss" | "warn" | "escalate" }
 Response: { "ok": true }
 ```

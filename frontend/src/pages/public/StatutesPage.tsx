@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, ArrowRight, Filter } from 'lucide-react';
+import { Search, BookOpen, ArrowRight, Filter } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
 import { listStatutes } from '../../lib/api';
 import { StatusBadge } from '../../components/ui/StatusBadge';

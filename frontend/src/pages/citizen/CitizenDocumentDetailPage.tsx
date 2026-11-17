@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Calendar } from 'lucide-react';
+import { ArrowLeft, Download, Copy, Share2, Calendar, FileText } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
 import { getDocumentById } from '../../lib/api';
 import { DocumentPreview } from '../../components/ui/DocumentPreview';

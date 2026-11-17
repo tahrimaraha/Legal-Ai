@@ -1,190 +1,161 @@
-import { useEffect, useState } from 'react';
-import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowRight, ArrowLeft, CheckCircle2, AlertCircle, RotateCw } from 'lucide-react';
+import { useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { AlertCircle, ArrowRight, CheckCircle2, Lock } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
-import { ApiError, resetPassword, sendForgotPassword } from '../../lib/api';
+import { ApiError, resetPassword } from '../../lib/api';
+import { passwordIsValid } from '../../lib/password';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
+import { PasswordChecklist } from '../../components/ui/PasswordChecklist';
+import { ScalesDivider } from '../../components/ui/ScalesDivider';
 
-const RESEND_COOLDOWN_SECONDS = 30;
+interface ResetState {
+  resetToken?: string;
+  email?: string;
+  expiresAt?: number;
+}
 
-/** Step 2 of password reset: the emailed code plus the new password. */
+/** Set a new password using the single-use pass issued after the emailed code was verified. */
 export default function ResetPasswordPage() {
   const { lang } = useLang();
   const bn = lang === 'bn';
   const navigate = useNavigate();
-  const location = useLocation();
-  const [searchParams] = useSearchParams();
-  const email = searchParams.get('email') ?? '';
-
-  const [code, setCode] = useState('');
-  const [devCode, setDevCode] = useState<string | null>((location.state as { devCode?: string | null } | null)?.devCode ?? null);
+  // The pass lives only in this page's memory (router state) — never in storage or the URL.
+  const state = (useLocation().state as ResetState | null) ?? {};
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [resending, setResending] = useState(false);
-  const [cooldown, setCooldown] = useState(RESEND_COOLDOWN_SECONDS);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
-  const [success, setSuccess] = useState(false);
+  const [done, setDone] = useState(false);
+  const [expired, setExpired] = useState(false);
 
-  useEffect(() => {
-    if (cooldown <= 0) return;
-    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
-    return () => clearTimeout(t);
-  }, [cooldown]);
-
-  // Without an email there is no code to check — start from step 1.
-  if (!email) {
-    return (
-      <div className="space-y-4 font-body text-center">
-        <h1 className="font-display text-xl font-bold text-ink">{bn ? 'প্রথমে রিসেট কোড নিন' : 'Request a Reset Code First'}</h1>
-        <Link to="/forgot-password" className="inline-flex items-center gap-1.5 text-xs font-semibold text-clay-deep hover:underline">
-          <span>{bn ? 'পাসওয়ার্ড পুনরুদ্ধার পাতায় যান' : 'Go to Reset Password'}</span>
-          <ArrowRight className="h-3.5 w-3.5" />
-        </Link>
-      </div>
-    );
-  }
-
-  const showError = (err: unknown, en: string, bnText: string) =>
-    setError(err instanceof ApiError ? (bn ? err.messageBn : err.message) : bn ? bnText : en);
+  const mismatch = confirmPassword.length > 0 && confirmPassword !== password;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setError('');
-    setNotice('');
-    if (password.length < 8) {
-      setError(bn ? 'পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে' : 'Password must be at least 8 characters');
+    if (!passwordIsValid(password, state.email)) {
+      setError(bn ? 'পাসওয়ার্ডটি নিচের সব শর্ত পূরণ করেনি' : 'Your password doesn’t meet all the requirements below');
       return;
     }
     if (password !== confirmPassword) {
-      setError(bn ? 'পাসওয়ার্ড দুটি মেলেনি' : 'Passwords do not match');
+      setError(bn ? 'পাসওয়ার্ড দুটি মেলেনি' : 'The two passwords do not match');
+      return;
+    }
+    if (state.expiresAt && Date.now() > state.expiresAt) {
+      setExpired(true);
       return;
     }
     setLoading(true);
     try {
-      await resetPassword(email, code.trim(), password);
-      setSuccess(true);
-      setTimeout(() => navigate(`/signin?${new URLSearchParams({ email })}`, { replace: true }), 1500);
+      await resetPassword(state.resetToken!, password);
+      setDone(true);
     } catch (err) {
-      showError(err, 'Could not reset the password.', 'পাসওয়ার্ড রিসেট করা যায়নি।');
+      if (err instanceof ApiError && err.code === 'RESET_SESSION_EXPIRED') setExpired(true);
+      else setError(err instanceof ApiError ? (bn ? err.messageBn : err.message) : bn ? 'আবার চেষ্টা করুন।' : 'Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleResend = async () => {
-    setError('');
-    setNotice('');
-    setResending(true);
-    try {
-      const res = await sendForgotPassword(email);
-      setDevCode(res.devVerificationCode ?? null);
-      setCode('');
-      setCooldown(RESEND_COOLDOWN_SECONDS);
-      setNotice(bn ? 'নতুন কোড পাঠানো হয়েছে। আগের কোডটি আর কাজ করবে না।' : 'A new code has been sent. Earlier codes no longer work.');
-    } catch (err) {
-      showError(err, 'Could not send a new code.', 'নতুন কোড পাঠানো যায়নি।');
-    } finally {
-      setResending(false);
-    }
-  };
+  if (!state.resetToken || expired) {
+    return (
+      <div className="space-y-6 text-center font-body">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-brick/30 bg-brick/10 text-brick">
+          <AlertCircle className="h-7 w-7" />
+        </div>
+        <div>
+          <h1 className="font-display text-2xl font-bold text-ink">
+            {expired ? (bn ? 'রিসেট সেশনের মেয়াদ শেষ' : 'Reset session expired') : bn ? 'আগে কোড যাচাই করুন' : 'Verify your code first'}
+          </h1>
+          <p className="mt-2 text-sm text-[#8a6a55]">
+            {bn
+              ? 'নিরাপত্তার জন্য পাসওয়ার্ড বদলাতে ইমেইলে পাঠানো কোড যাচাই করতে হয়। আবার শুরু করুন।'
+              : 'For your security, a new password can only be set right after verifying the code we email you. Please start again.'}
+          </p>
+        </div>
+        <Button size="lg" variant="primary" className="w-full justify-center" onClick={() => navigate('/forgot-password', { state: { email: state.email } })}>
+          <span>{bn ? 'নতুন কোড নিন' : 'Get a new code'}</span>
+          <ArrowRight className="ml-1.5 h-4 w-4" />
+        </Button>
+      </div>
+    );
+  }
+
+  if (done) {
+    return (
+      <div className="space-y-6 text-center font-body">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-[#b9d3a6] bg-[#e7f0df] text-[#4f7a3a]">
+          <CheckCircle2 className="h-7 w-7" />
+        </div>
+        <div>
+          <h1 className="font-display text-2xl font-bold text-ink">{bn ? 'পাসওয়ার্ড পরিবর্তন হয়েছে' : 'Password updated'}</h1>
+          <p className="mt-2 text-sm text-[#8a6a55]">
+            {bn
+              ? 'নতুন পাসওয়ার্ড দিয়ে সাইন ইন করুন। নিরাপত্তার জন্য অন্য সব ডিভাইস থেকে সাইন আউট করা হয়েছে।'
+              : 'Sign in with your new password. For your security, you’ve been signed out on all other devices.'}
+          </p>
+        </div>
+        <Button size="lg" variant="primary" className="w-full justify-center" onClick={() => navigate('/signin', { replace: true, state: { email: state.email, passwordReset: true } })}>
+          <span>{bn ? 'সাইন ইন করুন' : 'Back to sign in'}</span>
+          <ArrowRight className="ml-1.5 h-4 w-4" />
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 font-body">
-      <div>
-        <h1 className="font-display text-2xl font-bold text-ink">{bn ? 'নতুন পাসওয়ার্ড নির্ধারণ' : 'Set New Password'}</h1>
-        <p className="mt-1 text-xs text-granite">
-          {bn
-            ? `${email} ঠিকানায় পাঠানো ৬-সংখ্যার কোড এবং আপনার নতুন পাসওয়ার্ড দিন।`
-            : `Enter the 6-digit code we sent to ${email} and choose a new password.`}
+      <div className="text-center">
+        <h1 className="font-display text-2xl font-bold text-ink">{bn ? 'নতুন পাসওয়ার্ড দিন' : 'Set a new password'}</h1>
+        <p className="mt-2 text-sm text-[#8a6a55]">
+          {bn ? 'অ্যাকাউন্ট: ' : 'For '}
+          <strong className="break-all text-ink">{state.email}</strong>
         </p>
+        <ScalesDivider className="mt-5" />
       </div>
 
-      {success ? (
-        <div className="p-4 rounded bg-clay-tint border border-clay text-xs text-clay-deep font-semibold flex items-center justify-center gap-2">
-          <CheckCircle2 className="h-4 w-4" />
-          <span>{bn ? 'পাসওয়ার্ড পরিবর্তন হয়েছে! সাইন ইন পাতায় যাচ্ছে...' : 'Password changed! Taking you to sign in...'}</span>
+      {error && (
+        <div role="alert" className="rounded-lg border border-brick/30 bg-brick/10 p-3 text-sm font-medium text-brick">
+          {error}
         </div>
-      ) : (
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {devCode && (
-            <div className="p-2.5 rounded bg-bone-deep border border-granite-soft text-[11px] text-ink-soft">
-              {bn ? 'ডেভ মোড — আপনার কোড: ' : 'Dev mode — your code: '}
-              <button
-                type="button"
-                onClick={() => setCode(devCode)}
-                className="font-mono font-bold text-ink tracking-widest underline decoration-dotted"
-              >
-                {devCode}
-              </button>
-            </div>
-          )}
-          <Input
-            type="text"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            label={bn ? 'রিসেট কোড' : 'Reset Code'}
-            placeholder="123456"
-            value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-            maxLength={6}
-            className="font-mono tracking-widest"
-            required
-          />
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-1">
           <Input
             type="password"
-            autoComplete="new-password"
             label={bn ? 'নতুন পাসওয়ার্ড' : 'New Password'}
-            placeholder="••••••••"
+            placeholder={bn ? 'কমপক্ষে ৮ অক্ষর' : 'At least 8 characters'}
+            icon={Lock}
+            autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
           />
-          <Input
-            type="password"
-            autoComplete="new-password"
-            label={bn ? 'পাসওয়ার্ড নিশ্চিত করুন' : 'Confirm New Password'}
-            placeholder="••••••••"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            required
-          />
+          <PasswordChecklist password={password} email={state.email} lang={lang} />
+        </div>
+        <Input
+          type="password"
+          label={bn ? 'পাসওয়ার্ড নিশ্চিত করুন' : 'Confirm New Password'}
+          placeholder={bn ? 'পাসওয়ার্ডটি আবার লিখুন' : 'Type it again'}
+          icon={Lock}
+          autoComplete="new-password"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          error={mismatch ? (bn ? 'পাসওয়ার্ড মিলছে না' : 'Passwords do not match') : undefined}
+          required
+        />
+        <Button size="lg" variant="primary" type="submit" loading={loading} className="w-full justify-center">
+          <span>{bn ? 'পাসওয়ার্ড হালনাগাদ করুন' : 'Update password'}</span>
+          <ArrowRight className="ml-1.5 h-4 w-4" />
+        </Button>
+      </form>
 
-          {error && (
-            <p className="flex items-center gap-1.5 text-xs text-brick">
-              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-              {error}
-            </p>
-          )}
-          {notice && !error && <p className="text-xs text-clay-deep">{notice}</p>}
-
-          <Button size="lg" variant="primary" type="submit" loading={loading} className="w-full justify-center">
-            <span>{bn ? 'পাসওয়ার্ড হালনাগাদ করুন' : 'Update Password'}</span>
-            <ArrowRight className="ml-1.5 h-4 w-4" />
-          </Button>
-
-          <div className="text-center">
-            <button
-              type="button"
-              onClick={handleResend}
-              disabled={resending || cooldown > 0}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-clay-deep hover:underline disabled:text-granite disabled:no-underline disabled:cursor-not-allowed"
-            >
-              <RotateCw className={`h-3.5 w-3.5 ${resending ? 'animate-spin' : ''}`} />
-              {cooldown > 0
-                ? bn ? `নতুন কোড পাঠান (${cooldown}s)` : `Resend code (${cooldown}s)`
-                : bn ? 'নতুন কোড পাঠান' : 'Resend code'}
-            </button>
-          </div>
-        </form>
-      )}
-
-      <div className="text-center text-xs text-ink-soft">
-        <Link to="/signin" className="inline-flex items-center gap-1 text-clay-deep hover:underline">
-          <ArrowLeft className="h-3 w-3" />
-          <span>{bn ? 'লগইন পাতায় ফিরুন' : 'Back to sign in'}</span>
+      <div className="border-t border-[#e7d6c6] pt-5 text-center text-sm">
+        <Link to="/signin" className="font-semibold text-clay-deep hover:underline">
+          {bn ? 'বাতিল করে সাইন ইন পাতায় ফিরুন' : 'Cancel and go back to sign in'}
         </Link>
       </div>
     </div>

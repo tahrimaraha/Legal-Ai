@@ -1,30 +1,32 @@
 import { Link } from 'react-router-dom';
 import { User, Briefcase, ArrowRight } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
+import { ScalesDivider } from '../../components/ui/ScalesDivider';
 
 export default function SignUpChooserPage() {
   const { lang } = useLang();
 
   return (
     <div className="space-y-6 font-body">
-      <div>
+      <div className="text-center">
         <h1 className="font-display text-2xl font-bold text-ink">
           {lang === 'bn' ? 'অ্যাকাউন্টের ধরন নির্বাচন করুন' : 'Choose Your Account Type'}
         </h1>
-        <p className="mt-1 text-xs text-granite">
+        <p className="mt-2 text-sm text-[#8a6a55]">
           {lang === 'bn'
             ? 'আপনি নাগরিক হিসেবে সাহায্য চান নাকি আইনজীবী হিসেবে যুক্ত হতে চান?'
             : 'Select how you want to use the legal AI platform'}
         </p>
+        <ScalesDivider className="mt-5" />
       </div>
 
       <div className="space-y-4">
         {/* Citizen Card */}
         <Link
           to="/signup/citizen"
-          className="flex items-start gap-4 rounded border border-granite p-5 hover:border-clay hover:bg-bone/40 transition group"
+          className="flex items-start gap-4 rounded-xl border border-[#dcc8b6] bg-[#fffdf9] p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-[#8a5a3c] hover:shadow-md group"
         >
-          <div className="rounded bg-clay-tint p-3 text-clay-deep shrink-0">
+          <div className="rounded-lg bg-[#f3e2d2] p-3 text-[#6b3c22] shrink-0">
             <User className="h-6 w-6" />
           </div>
           <div className="flex-1">
@@ -45,9 +47,9 @@ export default function SignUpChooserPage() {
         {/* Lawyer Card */}
         <Link
           to="/signup/lawyer"
-          className="flex items-start gap-4 rounded border border-granite p-5 hover:border-clay hover:bg-bone/40 transition group"
+          className="flex items-start gap-4 rounded-xl border border-[#dcc8b6] bg-[#fffdf9] p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-[#8a5a3c] hover:shadow-md group"
         >
-          <div className="rounded bg-ink text-bone p-3 shrink-0">
+          <div className="rounded-lg bg-[#6b3c22] text-[#fff7ef] p-3 shrink-0">
             <Briefcase className="h-6 w-6" />
           </div>
           <div className="flex-1">

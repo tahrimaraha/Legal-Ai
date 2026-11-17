@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, UserCheck } from 'lucide-react';
+import { MapPin, ArrowRight, Award, UserCheck } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
 import { listLawyers } from '../../lib/api';
 import { StatusBadge } from '../../components/ui/StatusBadge';

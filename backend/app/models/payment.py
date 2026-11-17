@@ -148,10 +148,6 @@ class Payout(UUIDPkMixin, TimestampMixin, Base):
     )
     paid_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    # Manual wallet payout: which wallet the admin sent from, to which number.
-    # `external_reference` holds the wallet TrxID.
-    method: Mapped[Optional[PaymentMethod]] = mapped_column(payment_method_enum, nullable=True)
-    receiver_number: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
 
     items: Mapped[list["PayoutItem"]] = relationship(
         back_populates="payout", cascade="all, delete-orphan"

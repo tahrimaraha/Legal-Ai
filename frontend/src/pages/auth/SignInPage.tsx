@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { ArrowRight, CheckCircle2, Lock, Mail, MailWarning, RotateCcw } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
 import { useRole } from '../../context/RoleContext';
-import { ApiError, loginUser } from '../../lib/api';
+import { ApiError, loginUser, resendVerificationEmail } from '../../lib/api';
+import { useCooldown } from '../../lib/useCooldown';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 
@@ -12,7 +13,13 @@ export default function SignInPage() {
   const { login } = useRole();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [email, setEmail] = useState(() => searchParams.get('email') ?? '');
+  const arrived = (useLocation().state as { email?: string; verified?: boolean; passwordReset?: boolean } | null) ?? {};
+  const [email, setEmail] = useState(arrived.email || '');
+  // Set when the password was right but the email isn't verified yet.
+  const [unverifiedEmail, setUnverifiedEmail] = useState('');
+  const [resendNote, setResendNote] = useState('');
+  const [resending, setResending] = useState(false);
+  const cooldown = useCooldown();
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -25,10 +32,13 @@ export default function SignInPage() {
       setError(lang === 'bn' ? 'ইমেইল ও পাসওয়ার্ড প্রদান করুন' : 'Please enter email and password');
       return;
     }
+    if (loading) return;
     setLoading(true);
     setError('');
+    setUnverifiedEmail('');
+    setResendNote('');
     try {
-      const res = await loginUser(email, password);
+      const res = await loginUser(email.trim(), password);
       login(res.user, res.token);
       if (redirectPath) {
         navigate(redirectPath);
@@ -41,15 +51,8 @@ export default function SignInPage() {
       }
     } catch (err) {
       if (err instanceof ApiError && err.code === 'EMAIL_NOT_VERIFIED') {
-        // Correct password, unverified account: the backend just issued a fresh code.
-        const params = new URLSearchParams({ email: String(err.details.email ?? email) });
-        if (redirectPath) params.set('next', redirectPath);
-        navigate(`/verify-email?${params}`, {
-          state: { devCode: (err.details.devVerificationCode as string | undefined) ?? null },
-        });
-        return;
-      }
-      if (err instanceof ApiError) {
+        setUnverifiedEmail(email.trim());
+      } else if (err instanceof ApiError) {
         setError(lang === 'bn' ? err.messageBn : err.message);
       } else {
         setError(lang === 'bn' ? 'লগইন ব্যর্থ হয়েছে' : 'Login failed');
@@ -59,32 +62,79 @@ export default function SignInPage() {
     }
   };
 
-  // Quick Demo Logins
-  const handleQuickLogin = (demoEmail: string) => {
-    setEmail(demoEmail);
-    setPassword('demo-password-123');
-  };
-
   return (
     <div className="space-y-6 font-body">
       <div>
         <h1 className="font-display text-2xl font-bold text-ink">
           {lang === 'bn' ? 'অ্যাকাউন্টে প্রবেশ করুন' : 'Sign in to LEGAL AI'}
         </h1>
-        <p className="mt-1 text-xs text-granite">
+        <p className="mt-2 text-sm text-[#8a6a55]">
           {lang === 'bn'
             ? 'আপনার নাগরিক বা আইনজীবী অ্যাকাউন্টে সাইন ইন করুন'
             : 'Enter your credentials to continue to your dashboard'}
         </p>
       </div>
 
-      {error && <div className="p-2.5 rounded bg-brick/10 border border-brick/30 text-xs text-brick font-medium">{error}</div>}
+      {(arrived.verified || arrived.passwordReset) && !error && !unverifiedEmail && (
+        <div role="status" className="flex items-start gap-2 rounded-lg border border-[#b9d3a6] bg-[#eef5e8] p-3 text-sm text-[#3f6330]">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            {arrived.passwordReset
+              ? lang === 'bn' ? 'পাসওয়ার্ড পরিবর্তন হয়েছে। নতুন পাসওয়ার্ড দিয়ে সাইন ইন করুন।' : 'Password updated. Sign in with your new password.'
+              : lang === 'bn' ? 'ইমেইল যাচাই সম্পন্ন। এখন সাইন ইন করুন।' : 'Email verified. You can sign in now.'}
+          </span>
+        </div>
+      )}
+
+      {error && <div role="alert" className="rounded-lg border border-brick/30 bg-brick/10 p-3 text-sm font-medium text-brick">{error}</div>}
+
+      {unverifiedEmail && (
+        <div role="alert" className="space-y-3 rounded-lg border border-[#e2b98f] bg-[#fbeedd] p-4 text-sm text-[#6b3c22]">
+          <p className="flex items-start gap-2 font-semibold">
+            <MailWarning className="mt-0.5 h-4 w-4 shrink-0" />
+            {lang === 'bn' ? 'আগে আপনার ইমেইল যাচাই করুন' : 'Please verify your email first'}
+          </p>
+          <p>
+            {lang === 'bn'
+              ? `${unverifiedEmail} ঠিকানায় পাঠানো লিংকে ক্লিক করে অ্যাকাউন্ট চালু করুন।`
+              : `Open the link we sent to ${unverifiedEmail} to activate your account.`}
+          </p>
+          {resendNote && <p className="text-[#3f6330]">{resendNote}</p>}
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            loading={resending}
+            disabled={cooldown.active}
+            onClick={async () => {
+              setResending(true);
+              try {
+                await resendVerificationEmail(unverifiedEmail);
+                cooldown.start(60);
+                setResendNote(lang === 'bn' ? 'নতুন যাচাই লিংক পাঠানো হয়েছে।' : 'A new verification link is on its way.');
+              } catch (err) {
+                if (err instanceof ApiError && typeof err.details.retryAfter === 'number') cooldown.start(err.details.retryAfter);
+                setResendNote(err instanceof ApiError ? (lang === 'bn' ? err.messageBn : err.message) : String(err));
+              } finally {
+                setResending(false);
+              }
+            }}
+          >
+            <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+            {cooldown.active
+              ? lang === 'bn' ? `আবার পাঠান (${cooldown.left} সে.)` : `Resend in ${cooldown.left}s`
+              : lang === 'bn' ? 'যাচাই ইমেইল আবার পাঠান' : 'Resend verification email'}
+          </Button>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input
           type="email"
           label={lang === 'bn' ? 'ইমেইল ঠিকানা' : 'Email Address'}
           placeholder="name@example.com"
+          icon={Mail}
+          autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
@@ -95,12 +145,14 @@ export default function SignInPage() {
             type="password"
             label={lang === 'bn' ? 'পাসওয়ার্ড' : 'Password'}
             placeholder="••••••••"
+            icon={Lock}
+            autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
           />
           <div className="flex justify-end">
-            <Link to="/forgot-password" className="text-[11px] text-clay-deep hover:underline">
+            <Link to="/forgot-password" state={{ email }} className="text-xs font-medium text-[#3a2112] hover:underline">
               {lang === 'bn' ? 'পাসওয়ার্ড ভুলে গেছেন?' : 'Forgot password?'}
             </Link>
           </div>
@@ -112,30 +164,7 @@ export default function SignInPage() {
         </Button>
       </form>
 
-      {/* Demo shortcuts */}
-      <div className="pt-4 border-t border-granite-soft">
-        <span className="font-mono text-[10px] text-granite uppercase block mb-2">
-          {lang === 'bn' ? 'দ্রুত ডেমো লগইন (Quick Demo Accounts)' : 'Quick Demo Presets'}
-        </span>
-        <div className="flex flex-wrap gap-1.5 text-xs">
-          <button
-            type="button"
-            onClick={() => handleQuickLogin('citizen@example.com')}
-            className="px-2 py-1 rounded bg-bone text-ink text-[11px] font-mono border border-granite-soft hover:bg-clay-tint"
-          >
-            Citizen Demo
-          </button>
-          <button
-            type="button"
-            onClick={() => handleQuickLogin('advocate.rafiq@example.com')}
-            className="px-2 py-1 rounded bg-bone text-ink text-[11px] font-mono border border-granite-soft hover:bg-clay-tint"
-          >
-            Lawyer Demo
-          </button>
-        </div>
-      </div>
-
-      <div className="text-center text-xs text-ink-soft">
+      <div className="border-t border-[#e7d6c6] pt-5 text-center text-sm text-ink-soft">
         {lang === 'bn' ? 'নতুন ব্যবহারকারী? ' : 'Don’t have an account? '}
         <Link to="/signup" className="font-semibold text-clay-deep hover:underline">
           {lang === 'bn' ? 'নিবন্ধন করুন' : 'Sign up'}

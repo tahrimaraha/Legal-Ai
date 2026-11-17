@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Flag, CheckCircle2, AlertTriangle, ShieldCheck, Trash2, ArrowRight } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
 import { listAdminFlags, resolveFlag } from '../../lib/api';
 import { Button } from '../../components/ui/Button';

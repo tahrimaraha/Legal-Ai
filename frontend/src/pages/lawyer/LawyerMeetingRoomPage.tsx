@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getMeetingByCode, endMeeting } from '../../lib/api';
 import { MeetingRoom } from '../../components/meeting/MeetingRoom';
-import { MeetingInvitePanel } from '../../components/meeting/MeetingInvitePanel';
 import { Skeleton, ErrorState } from '../../components/ui/EmptyState';
 import type { Meeting } from '../../mocks/types';
 
@@ -53,7 +52,6 @@ export default function LawyerMeetingRoomPage() {
       onLeave={() => navigate('/lawyer/meeting')}
       onEndForEveryone={handleEnd}
       ending={ending}
-      hostPanel={<MeetingInvitePanel meeting={meeting} onInvited={setMeeting} />}
     />
   );
 }

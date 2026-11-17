@@ -16,8 +16,8 @@ export function Problem() {
         </div>
 
         <dl className="grid gap-px self-start border border-granite-soft bg-granite-soft">
-          {t.problem.stats.map((s) => (
-            <RevealItem key={s.label} className="bg-bone p-7 lg:p-8">
+          {t.problem.stats.map((s, i) => (
+            <RevealItem key={`stat-${i}`} className="bg-bone p-7 lg:p-8">
               <dt className="sr-only">{s.label}</dt>
               <dd>
                 <p className="font-display text-[clamp(2.25rem,1.6rem+2vw,3rem)] leading-none text-ink">
