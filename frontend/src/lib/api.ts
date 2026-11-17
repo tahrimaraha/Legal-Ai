@@ -771,10 +771,6 @@ export async function uploadCorpusDocument(_file: { name: string; statuteId: str
   return post('/admin/corpus/upload');
 }
 
-export async function rebuildIndex(): Promise<{ ok: boolean; message: string }> {
-  return post('/admin/corpus/rebuild');
-}
-
 export async function listAdminFlags(): Promise<FlaggedAnswer[]> {
   return apiRequest('/admin/flags');
 }

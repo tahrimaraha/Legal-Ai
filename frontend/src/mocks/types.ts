@@ -380,6 +380,11 @@ export interface CorpusDocument {
   fileSizeMb: number;
   lastIndexed: string;
   error?: string;
+  year?: number | null;
+  actNo?: string | null;
+  lang?: string;
+  source?: string;
+  repealed?: boolean;
 }
 
 export interface AppNotification {
