@@ -1,0 +1,35 @@
+# Render Blueprint — free Python web service (website + API). See RENDER_GUIDE.md.
+services:
+  - type: web
+    name: legal-ai
+    runtime: python
+    plan: free
+    region: singapore
+    buildCommand: cd frontend && npm ci --no-audit --no-fund && npx vite build && cd ../backend && pip install -r requirements-render.txt
+    startCommand: sh render-start.sh
+    healthCheckPath: /api/v1/corpus/stats
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: NODE_VERSION
+        value: 20.18.0
+      - key: APP_ENV
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: REFRESH_COOKIE_SECURE
+        value: "true"
+      # 512 MB free instance: legal-area classifier on; retrieval is keyword-only (E5 + PyTorch need ~1.5 GB).
+      # If the service ever restarts with "out of memory", set this to "false".
+      - key: ML_MODELS_ENABLED
+        value: "true"
+      - key: EMAIL_PROVIDER
+        value: brevo
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
+      - key: BREVO_API_KEY
+        sync: false
+      - key: SMTP_FROM_EMAIL
+        sync: false

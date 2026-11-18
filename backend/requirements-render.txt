@@ -1,0 +1,8 @@
+# Render free instance (512 MB): web/API + the legal-area classifier; no PyTorch/E5 (they need ~1.5 GB).
+# Measured: ~380 MB in use with the classifier loaded.
+-r requirements-lite.txt
+scikit-learn==1.6.1
+numpy>=1.26
+scipy>=1.11
+joblib>=1.3
+nltk>=3.8
