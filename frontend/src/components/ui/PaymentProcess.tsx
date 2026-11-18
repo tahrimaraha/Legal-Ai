@@ -26,7 +26,7 @@ const METHOD: Record<PaymentMethod, { name: string; color: string; wallet: boole
 
 type Step = 'method' | 'pay' | 'done';
 
-function CopyButton({ value, label }: { value: string; label: string }) {
+export function CopyButton({ value, label }: { value: string; label: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <button

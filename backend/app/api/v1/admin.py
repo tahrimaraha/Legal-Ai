@@ -312,10 +312,22 @@ async def corpus_rebuild(_: User = Depends(admin_only)) -> dict:
 
 # --- Lawyer payouts -------------------------------------------------------------
 
+class PayoutIn(BaseModel):
+    """How the admin paid the lawyer (all optional so older clients keep working)."""
+    method: Optional[Literal["bkash", "nagad", "rocket", "bank"]] = None
+    payTo: str = Field(default="", max_length=200)
+    trxId: str = Field(default="", max_length=40)
+    note: str = Field(default="", max_length=300)
+
+
+_METHOD_LABEL = {"bkash": "bKash", "nagad": "Nagad", "rocket": "Rocket", "bank": "bank transfer"}
+
+
 @router.post("/admin/payouts/{kind}/{record_id}")
 async def record_payout(
     kind: Literal["verification", "consultation"], record_id: str,
-    _: User = Depends(admin_only), db: AsyncSession = Depends(get_db),
+    body: Optional[PayoutIn] = None,
+    admin: User = Depends(admin_only), db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Record that the lawyer has been paid for a completed verification or consultation."""
     rec = await records.get(db, kind, record_id)
@@ -323,16 +335,42 @@ async def record_payout(
     if data.get("status") != "completed":
         raise ForbiddenError("Only completed work can be paid out.", "শুধু সম্পন্ন কাজের পেমেন্ট দেওয়া যায়।")
     now = records.now_iso()
+    body = body or PayoutIn()
+    payout = {"method": body.method, "payTo": body.payTo.strip(), "trxId": body.trxId.strip().upper(),
+              "note": body.note.strip(), "paidBy": admin.full_name, "paidAt": now}
     if kind == "verification":
-        data["verdict"] = {**(data.get("verdict") or {}), "paymentProcessed": True, "paidOutAt": now}
+        data["verdict"] = {**(data.get("verdict") or {}), "paymentProcessed": True, "paidOutAt": now, "payout": payout}
     else:
         data["paymentProcessed"] = True
         data["paidOutAt"] = now
+        data["payout"] = payout
     records.save(rec, data)
+    how = f" by {_METHOD_LABEL[body.method]}" if body.method else ""
+    trx = f" (TrxID {payout['trxId']})" if payout["trxId"] else ""
     await records.notify(
-        db, rec.lawyer_id, "system", "Payout recorded", "পেমেন্ট সম্পন্ন",
-        "An admin recorded your payout for completed work.", "সম্পন্ন কাজের জন্য আপনার পেমেন্ট রেকর্ড করা হয়েছে।",
+        db, rec.lawyer_id, "system", "Payout sent", "পেমেন্ট পাঠানো হয়েছে",
+        f"An admin sent your payout for completed work{how}{trx}.",
+        f"সম্পন্ন কাজের জন্য আপনার পেমেন্ট পাঠানো হয়েছে{trx}।",
         "/lawyer",
     )
     await db.commit()
     return records.out(rec)
+
+
+@router.post("/admin/payouts/{kind}/{record_id}/remind")
+async def remind_payout_details(
+    kind: Literal["verification", "consultation"], record_id: str,
+    _: User = Depends(admin_only), db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Ask the lawyer to add the bKash / Nagad / Rocket / bank account where they want to be paid."""
+    rec = await records.get(db, kind, record_id)
+    if rec.lawyer_id is None:
+        raise ForbiddenError("No lawyer is assigned to this request yet.", "এই অনুরোধে এখনো কোনো আইনজীবী নেই।")
+    await records.notify(
+        db, rec.lawyer_id, "system", "Add your payment details", "আপনার পেমেন্ট তথ্য যোগ করুন",
+        "We want to pay you for completed work. Please add your bKash, Nagad, Rocket or bank account in your Profile.",
+        "সম্পন্ন কাজের পেমেন্ট পাঠাতে আপনার প্রোফাইলে বিকাশ, নগদ, রকেট বা ব্যাংক একাউন্ট যোগ করুন।",
+        "/lawyer/profile",
+    )
+    await db.commit()
+    return {"ok": True}

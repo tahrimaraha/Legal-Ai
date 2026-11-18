@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { DollarSign, TrendingUp, Users, ShieldCheck, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
-import { listVerifications, listConsultations, recordLawyerPayout, getPlatformPaymentAccounts, savePlatformPaymentAccounts } from '../../lib/api';
+import { listVerifications, listConsultations, recordLawyerPayout, getPlatformPaymentAccounts, savePlatformPaymentAccounts, type PayoutDetails } from '../../lib/api';
 import { PaymentAccountsForm } from '../../components/ui/PaymentAccountsForm';
 import { PaymentStatusCard } from '../../components/ui/PaymentStatusCard';
 import { StatCard } from '../../components/ui/StatCard';
@@ -23,6 +23,7 @@ export default function AdminPaymentsDashboard() {
     amount: number;
     details: string;
     id: string;
+    lawyerId?: string;
   } | null>(null);
 
   useEffect(() => {
@@ -43,28 +44,17 @@ export default function AdminPaymentsDashboard() {
       recipient: req.claimedByLawyerName || 'Unknown Lawyer',
       amount: lawyerFee,
       details: `Verification: ${req.questionExcerptEn.slice(0, 50)}...`,
-      id: req.id
+      id: req.id,
+      lawyerId: req.claimedByLawyerId,
     });
     setPaymentModalOpen(true);
   };
 
-  const handlePayConsultationLawyer = (consultation: ConsultationRequest) => {
-    setSelectedPayment({
-      type: 'consultation',
-      recipient: consultation.lawyerName || 'Unknown Lawyer',
-      amount: consultation.feeBdt,
-      details: `Consultation: ${consultation.topicEn.slice(0, 50)}...`,
-      id: consultation.id
-    });
-    setPaymentModalOpen(true);
-  };
-
-  const handlePaymentComplete = async () => {
+  const handlePaymentComplete = async (payout: PayoutDetails) => {
+    if (!selectedPayment) return;
+    // Persist the payout first (throws → the modal shows the error); the list only updates once it is saved.
+    await recordLawyerPayout(selectedPayment.type, selectedPayment.id, payout);
     setPaymentModalOpen(false);
-    if (selectedPayment) {
-      // Persist the payout first; the list below only updates once it is saved.
-      await recordLawyerPayout(selectedPayment.type, selectedPayment.id);
-    }
     // Update the verification/consultation status to mark payment as processed
     if (selectedPayment) {
       if (selectedPayment.type === 'verification') {
@@ -91,16 +81,13 @@ export default function AdminPaymentsDashboard() {
 
   // Calculate payment statistics
   const completedVerifications = verifications.filter(v => v.status === 'completed');
-  const completedConsultations = consultations.filter(c => c.status === 'completed');
-  const pendingPayments = completedVerifications.filter(v => !v.verdict?.paymentProcessed).length + 
-                          completedConsultations.filter(c => !c.paymentProcessed).length;
-  
-  const totalRevenue = completedVerifications.reduce((sum, v) => sum + v.feeBdt, 0) +
-                       completedConsultations.reduce((sum, c) => sum + c.feeBdt, 0);
+  // Consultation fees are paid by the client straight to the lawyer, so only verification fees pass through the platform
+  const pendingPayments = completedVerifications.filter(v => !v.verdict?.paymentProcessed).length;
+  const totalRevenue = completedVerifications.reduce((sum, v) => sum + v.feeBdt, 0);
   const totalPayouts = completedVerifications.reduce((sum, v) => {
     const lawyerFee = v.urgency === 'urgent' ? 150 : 100;
     return sum + lawyerFee;
-  }, 0) + completedConsultations.reduce((sum, c) => sum + c.feeBdt, 0);
+  }, 0);
   const netProfit = totalRevenue - totalPayouts;
 
   const stats = [
@@ -379,6 +366,8 @@ export default function AdminPaymentsDashboard() {
         {selectedPayment && (
           <AdminPaymentFlow
             paymentType={selectedPayment.type}
+            recordId={selectedPayment.id}
+            lawyerId={selectedPayment.lawyerId}
             recipient={selectedPayment.recipient}
             amount={selectedPayment.amount}
             details={selectedPayment.details}

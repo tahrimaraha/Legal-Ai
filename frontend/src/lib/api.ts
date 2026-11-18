@@ -801,9 +801,21 @@ export async function saveMyAvailability(data: LawyerAvailability): Promise<Lawy
 }
 
 /** Admin: record that the lawyer was paid for a completed verification or consultation. */
-export async function recordLawyerPayout(kind: 'verification' | 'consultation', id: string): Promise<{ ok: boolean }> {
-  await post(`/admin/payouts/${kind}/${encodeURIComponent(id)}`);
+export interface PayoutDetails {
+  method: PaymentMethod;
+  payTo: string;
+  trxId: string;
+  note?: string;
+}
+
+export async function recordLawyerPayout(kind: 'verification' | 'consultation', id: string, payout?: PayoutDetails): Promise<{ ok: boolean }> {
+  await post(`/admin/payouts/${kind}/${encodeURIComponent(id)}`, payout ?? {});
   return { ok: true };
+}
+
+/** Admin: notify the lawyer to add where they want to be paid. */
+export async function remindLawyerPaymentDetails(kind: 'verification' | 'consultation', id: string): Promise<void> {
+  await post(`/admin/payouts/${kind}/${encodeURIComponent(id)}/remind`, {});
 }
 
 // ——— AI model report (notebook benchmark + evaluation of the deployed assistant) ———
