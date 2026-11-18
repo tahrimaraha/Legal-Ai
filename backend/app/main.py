@@ -176,3 +176,28 @@ async def readiness(request: Request) -> JSONResponse:
 
 
 app.include_router(api_router, prefix=settings.api_v1_prefix)
+
+
+# --- Single-container hosting: serve the built website from the API (FRONTEND_DIST_DIR) -------------
+# Registered last, so /api/*, /health and /docs keep priority. Any other GET returns the real file if it
+# exists (assets, images) or index.html, so client-side routes like /app/chat survive a page reload.
+if settings.frontend_dist_dir:
+    from pathlib import Path
+
+    from fastapi.responses import FileResponse
+
+    _dist = Path(settings.frontend_dist_dir).resolve()
+    _index = _dist / "index.html"
+    if _index.is_file():
+
+        @app.get("/{path:path}", include_in_schema=False)
+        async def spa(path: str) -> FileResponse:
+            if path.startswith(settings.api_v1_prefix.strip("/") + "/"):
+                raise StarletteHTTPException(status_code=404)
+            target = (_dist / path).resolve()
+            if path and target.is_file() and _dist in target.parents:  # no ../ escapes
+                cache = "public, max-age=31536000, immutable" if path.startswith("assets/") else "no-cache"
+                return FileResponse(target, headers={"Cache-Control": cache})
+            return FileResponse(_index, headers={"Cache-Control": "no-cache"})
+    else:
+        logger.warning("frontend_dist_missing", path=str(_dist))

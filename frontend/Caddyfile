@@ -1,0 +1,32 @@
+# {$SITE_ADDRESS} is set in deploy/.env (e.g. legalai-203-0-113-5.sslip.io or your own domain).
+# Caddy obtains and renews the HTTPS certificate for it automatically.
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	# API + WebSockets (video-call signalling) -> FastAPI
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+
+	# React single-page app: real files, otherwise index.html (client-side routes like /app/chat)
+	handle {
+		root * /srv
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		header /index.html Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(self), microphone=(self), geolocation=()"
+		-Server
+	}
+
+	request_body {
+		max_size 25MB
+	}
+}

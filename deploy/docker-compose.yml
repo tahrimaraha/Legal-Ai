@@ -1,0 +1,105 @@
+# Legal AI — production stack for one Linux server (VPS). See deploy/README.md.
+#   cd deploy && docker compose up -d --build
+# Only Caddy (80/443) and the TURN relay are reachable from the internet; Postgres, Redis and the API are internal.
+name: legalai
+
+services:
+  db:
+    image: pgvector/pgvector:pg15
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: legalai
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}
+      POSTGRES_DB: legalai
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U legalai -d legalai"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build: ../backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      APP_ENV: production
+      DEBUG: "false"
+      DATABASE_URL: postgresql+asyncpg://legalai:${POSTGRES_PASSWORD}@db:5432/legalai
+      DATABASE_URL_SYNC: postgresql://legalai:${POSTGRES_PASSWORD}@db:5432/legalai
+      REDIS_URL: redis://redis:6379/0
+      FRONTEND_URL: https://${SITE_ADDRESS}
+      CORS_ALLOWED_ORIGINS: https://${SITE_ADDRESS}
+      CORS_ALLOW_LAN_REGEX: ""
+      REFRESH_COOKIE_SECURE: "true"
+      LOCAL_STORAGE_ROOT: /app/storage
+      MEETING_TURN_URLS: turn:${SITE_ADDRESS}:3478?transport=udp,turn:${SITE_ADDRESS}:3478?transport=tcp
+      MEETING_TURN_USERNAME: legalai
+      MEETING_TURN_CREDENTIAL: ${TURN_PASSWORD:?set TURN_PASSWORD in deploy/.env}
+    volumes:
+      - uploads:/app/storage
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web:
+    build: ../frontend
+    restart: unless-stopped
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?set SITE_ADDRESS in deploy/.env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
+  # TURN relay so video calls connect across mobile networks / strict NATs (WebRTC).
+  turn:
+    image: coturn/coturn:4.6
+    restart: unless-stopped
+    network_mode: host
+    # run turnserver directly: the image's entrypoint re-evaluates every argument and mangles some of them
+    entrypoint: ["turnserver"]
+    command:
+      - -n
+      - --log-file=stdout
+      - --listening-port=3478
+      - --min-port=49160
+      - --max-port=49200
+      - --fingerprint
+      - --lt-cred-mech
+      - --user=legalai:${TURN_PASSWORD}
+      - --realm=${SITE_ADDRESS}
+      - --no-cli
+      - --no-tls
+      - --no-dtls
+      - --no-multicast-peers
+      - --denied-peer-ip=10.0.0.0-10.255.255.255
+      - --denied-peer-ip=172.16.0.0-172.31.255.255
+      - --denied-peer-ip=192.168.0.0-192.168.255.255
+
+volumes:
+  db_data:
+  redis_data:
+  uploads:
+  caddy_data:
+  caddy_config:

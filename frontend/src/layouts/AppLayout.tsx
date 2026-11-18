@@ -63,13 +63,13 @@ export function AppLayout() {
       {sidebarOpen && (
         <div
           onClick={() => setSidebarOpen(false)}
-          className="fixed inset-0 z-40 bg-ink/40 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-50 bg-ink/40 backdrop-blur-sm lg:hidden"
         />
       )}
 
       {/* Collapsible Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-granite bg-white transition-transform duration-200 lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-granite bg-white transition-transform duration-200 lg:static lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >

@@ -60,6 +60,8 @@ class Settings(BaseSettings):
     vector_backend: str = "pgvector"
     free_questions_per_day: int = 20
     corpus_path: str = "data/legal_corpus.db"  # prebuilt by scripts/build_corpus.py
+    # Serve the built React app (frontend/dist) from the API itself — single-container hosting (Hugging Face Spaces)
+    frontend_dist_dir: str = ""
     models_dir: str = "data/models"  # trained models exported by scripts/export_models.py
     ml_models_enabled: bool = True  # domain classifier + E5 hybrid retrieval (falls back to keyword search)
 
@@ -114,6 +116,7 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_from_email: str = "no-reply@legalai.local"
     smtp_from_name: str = "LEGAL AI"
+    brevo_api_key: str = ""  # EMAIL_PROVIDER=brevo: send over HTTPS (hosts that block SMTP ports)
     smtp_use_tls: bool = True
 
     # --- SMS ---
@@ -150,6 +153,28 @@ class Settings(BaseSettings):
     # --- Logging ---
     log_level: str = "INFO"
     log_json: bool = True
+
+    @field_validator("database_url")
+    @classmethod
+    def _asyncpg_url(cls, value: str) -> str:
+        """Accept hosted-Postgres URLs as given (Neon, Supabase …): postgres:// or postgresql:// with
+        ?sslmode=require&channel_binding=require -> postgresql+asyncpg://...?ssl=require (what asyncpg takes)."""
+        from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
+        v = value.strip()
+        for prefix in ("postgres://", "postgresql://"):
+            if v.startswith(prefix):
+                v = "postgresql+asyncpg://" + v[len(prefix):]
+        parts = urlsplit(v)
+        if not parts.query:
+            return v
+        q = []
+        for k, val in parse_qsl(parts.query, keep_blank_values=True):
+            if k == "sslmode":
+                q.append(("ssl", val))
+            elif k not in ("channel_binding", "options"):
+                q.append((k, val))
+        return urlunsplit(parts._replace(query=urlencode(q)))
 
     @field_validator("payment_enabled_methods", "allowed_upload_mime_types", "cors_allowed_origins")
     @classmethod
