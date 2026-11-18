@@ -288,21 +288,29 @@ async def complete_consultation(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     rec = await records.get_for(db, "consultation", consultation_id, user)
+    if rec.data.get("status") not in ("accepted", "scheduled"):
+        raise ConflictError("Only accepted consultations can be completed.", "শুধু গৃহীত পরামর্শ সম্পন্ন করা যায়।")
+    await mark_completed(db, rec, "Consultation marked completed", payload.privateNotes)
+    await db.commit()
+    return _view(rec, user)
+
+
+async def mark_completed(db: AsyncSession, rec: AppRecord, note: str, private_notes: Optional[str] = None) -> bool:
+    """Move an accepted/scheduled consultation to completed and tell the client. Returns False if it wasn't open."""
     data = dict(rec.data)
     if data.get("status") not in ("accepted", "scheduled"):
-        raise ConflictError("Only accepted consultations can be completed.", "শুধু গৃহীত পরামর্শ সম্পন্ন করা যায়।")
-    if payload.privateNotes:
-        data["lawyerPrivateNotes"] = payload.privateNotes
-    _push_timeline(data, "completed", "Consultation marked completed")
+        return False
+    if private_notes:
+        data["lawyerPrivateNotes"] = private_notes
+    _push_timeline(data, "completed", note)
     records.save(rec, data)
     await records.notify(
         db, rec.owner_id, "system", "Consultation completed", "পরামর্শ সম্পন্ন হয়েছে",
-        f"Your consultation with {data['lawyerName']} is complete. You can now leave a review.",
-        f"{data['lawyerNameBn']} এর সাথে আপনার পরামর্শ সম্পন্ন হয়েছে। এখন রিভিউ দিতে পারেন।",
+        f"Your consultation with {data.get('lawyerName', 'your lawyer')} is complete. You can now leave a review.",
+        f"{data.get('lawyerNameBn') or data.get('lawyerName', '')} এর সাথে আপনার পরামর্শ সম্পন্ন হয়েছে। এখন রিভিউ দিতে পারেন।",
         f"/app/consultations/{rec.id}",
     )
-    await db.commit()
-    return _view(rec, user)
+    return True
 
 
 @router.post("/consultations/{consultation_id}/review")

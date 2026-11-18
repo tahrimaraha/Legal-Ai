@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Calendar, Clock, ArrowRight, UserCheck, CheckCircle2, XCircle } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
-import { listConsultations, declineConsultation } from '../../lib/api';
+import { listConsultations, declineConsultation, completeConsultation, ApiError } from '../../lib/api';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { Button } from '../../components/ui/Button';
 import { Skeleton, EmptyState } from '../../components/ui/EmptyState';
@@ -38,6 +38,23 @@ export default function LawyerConsultationsPage() {
   const handleScheduled = (updated: ConsultationRequest) => {
     setConsultations((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
     setScheduling(null);
+  };
+
+  const [completing, setCompleting] = useState<string | null>(null);
+  const handleComplete = async (c: ConsultationRequest) => {
+    const ok = confirm(lang === 'bn'
+      ? `${c.citizenName} এর সাথে পরামর্শটি সম্পন্ন হিসেবে চিহ্নিত করবেন?`
+      : `Mark the consultation with ${c.citizenName} as completed?`);
+    if (!ok) return;
+    setCompleting(c.id);
+    try {
+      const updated = await completeConsultation(c.id);
+      setConsultations((prev) => prev.map((x) => (x.id === c.id ? updated : x)));
+    } catch (err) {
+      alert(err instanceof ApiError ? (lang === 'bn' ? err.messageBn : err.message) : String(err));
+    } finally {
+      setCompleting(null);
+    }
   };
 
   const handleDecline = async (id: string) => {
@@ -158,6 +175,12 @@ export default function LawyerConsultationsPage() {
                       <Button size="sm" variant="ghost" onClick={() => setScheduling(c.status === 'accepted' ? { ...c, status: 'scheduled' } : c)}>
                         <Calendar className="mr-1 h-3.5 w-3.5" />
                         <span>{c.status === 'accepted' ? (lang === 'bn' ? 'সময় দিন' : 'Set time') : lang === 'bn' ? 'সময় পরিবর্তন' : 'Reschedule'}</span>
+                      </Button>
+                    )}
+                    {(c.status === 'scheduled' || c.status === 'accepted') && (
+                      <Button size="sm" variant="primary" loading={completing === c.id} disabled={!!completing} onClick={() => void handleComplete(c)}>
+                        <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
+                        <span>{lang === 'bn' ? 'সম্পন্ন' : 'Mark completed'}</span>
                       </Button>
                     )}
                     <Link to={`/lawyer/consultations/${c.id}`}>

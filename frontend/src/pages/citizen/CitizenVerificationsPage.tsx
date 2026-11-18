@@ -113,9 +113,15 @@ export default function CitizenVerificationsPage() {
                   <span className="font-mono text-[10px] text-granite uppercase">
                     {req.citations.length} Citations Attached
                   </span>
-                  <span className="font-bold text-clay-deep">
-                    ৳{req.feeBdt} {lang === 'bn' ? 'পরিশোধিত' : 'Paid'}
-                  </span>
+                  {(() => {
+                    const st = req.payment?.status;
+                    const [en, bn, cls] =
+                      st === 'confirmed' ? ['Paid', 'পরিশোধিত', 'text-clay-deep']
+                      : st === 'submitted' ? ['Payment awaiting confirmation', 'পেমেন্ট যাচাইয়ের অপেক্ষায়', 'text-[#8a6100]']
+                      : st === 'rejected' ? ['Payment not received — pay again', 'পেমেন্ট পাওয়া যায়নি — আবার দিন', 'text-brick']
+                      : ['Unpaid — pay now', 'অপরিশোধিত — এখন পেমেন্ট করুন', 'text-brick'];
+                    return <span className={`font-bold ${cls}`}>৳{req.feeBdt} · {lang === 'bn' ? bn : en}</span>;
+                  })()}
                 </div>
                 <span className="text-clay-deep font-semibold flex items-center gap-1">
                   {lang === 'bn' ? 'সম্পূর্ণ রায় দেখুন' : 'View Full Verdict'} <ArrowRight className="h-3 w-3" />

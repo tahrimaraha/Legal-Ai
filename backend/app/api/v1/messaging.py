@@ -286,6 +286,12 @@ async def end_meeting(meeting_id: str, user: User = Depends(get_current_user), d
         data = dict(thread.data)
         data.pop("activeMeetingCode", None)
         records.save(thread, data)
+    # The session happened: ending the call completes the consultation it belongs to
+    consult_id = records.parse_uuid(thread.data.get("consultationId")) if thread is not None else None
+    consult = await db.get(AppRecord, consult_id) if consult_id else None
+    if consult is not None and consult.kind == "consultation" and consult.lawyer_id == user.id:
+        from app.api.v1.consultations import mark_completed
+        await mark_completed(db, consult, "Completed when the video session ended")
     await db.commit()
     await broadcast_ended(str(rec.data.get("code", "")))
     return _meeting_view(rec, user)
