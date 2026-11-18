@@ -206,3 +206,131 @@ async def save_availability(
         records.save(extra, {**extra.data, **settings_})
     await db.commit()
     return await get_availability(user, db)
+
+
+# --- Lawyer's diary / day planner ---------------------------------------------------------------------
+# The lawyer's own entries (court hearings, meetings, tasks, personal time). Entries that "block booking"
+# are taken out of the open slots clients can book; consultations show up in the diary automatically.
+
+DIARY_KINDS = ("court", "client_meeting", "task", "personal", "other")
+_HHMM = r"^([01]\d|2[0-3]):[0-5]\d$"
+
+
+class DiaryEntryIn(BaseModel):
+    date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
+    start: str = Field(pattern=_HHMM)
+    end: str = Field(pattern=_HHMM)
+    title: str = Field(min_length=1, max_length=120)
+    kind: str = Field(default="other", pattern="^(" + "|".join(DIARY_KINDS) + ")$")
+    location: str = Field(default="", max_length=160)
+    notes: str = Field(default="", max_length=2000)
+    blocksBooking: bool = True
+    done: bool = False
+
+
+def _check_entry(e: DiaryEntryIn) -> None:
+    from datetime import date as _date
+    try:
+        _date.fromisoformat(e.date)
+    except ValueError as exc:
+        raise ValidationAppError("Choose a valid date.", "সঠিক তারিখ দিন।") from exc
+    if e.end <= e.start:
+        raise ValidationAppError("The end time must be after the start time.", "শেষের সময় শুরুর সময়ের পরে হতে হবে।")
+
+
+async def _diary_conflicts(db: AsyncSession, lawyer_id, e: DiaryEntryIn) -> list[dict]:
+    """Booked consultations that overlap a busy entry — returned as a warning, not an error."""
+    if not e.blocksBooking:
+        return []
+    rows = await db.scalars(select(AppRecord).where(
+        AppRecord.kind == "consultation", AppRecord.lawyer_id == lawyer_id,
+        AppRecord.data["status"].astext.in_(["accepted", "scheduled"]),
+        AppRecord.data["scheduledSlot"]["date"].astext == e.date,
+    ))
+    out = []
+    for rec in rows.all():
+        t = (rec.data.get("scheduledSlot") or {}).get("time", "")[:5]
+        if t and e.start <= t < e.end:
+            out.append({"id": str(rec.id), "time": t, "citizenName": rec.data.get("citizenName", "")})
+    return out
+
+
+async def _own_entry(db: AsyncSession, entry_id: str, user: User) -> AppRecord:
+    rec = await records.get(db, "diary_entry", entry_id)
+    if rec.lawyer_id != user.id:
+        raise records.not_found("Diary entry")
+    return rec
+
+
+@router.get("/lawyers/me/diary")
+async def get_diary(
+    start: str = Query(pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    days: int = Query(default=7, ge=1, le=42),
+    user: User = Depends(require_roles(UserRole.LAWYER)),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Everything on the lawyer's calendar for [start, start+days): own entries, consultations, weekly hours."""
+    from datetime import date as _date
+    try:
+        first = _date.fromisoformat(start)
+    except ValueError as exc:
+        raise ValidationAppError("Choose a valid date.", "সঠিক তারিখ দিন।") from exc
+    last = (first + timedelta(days=days - 1)).isoformat()
+    entries = (await db.scalars(select(AppRecord).where(
+        AppRecord.kind == "diary_entry", AppRecord.lawyer_id == user.id,
+        AppRecord.data["date"].astext >= first.isoformat(), AppRecord.data["date"].astext <= last,
+    ))).all()
+    consults = (await db.scalars(select(AppRecord).where(
+        AppRecord.kind == "consultation", AppRecord.lawyer_id == user.id,
+        AppRecord.data["status"].astext.in_(["requested", "accepted", "scheduled", "completed"]),
+    ))).all()
+    sessions = []
+    for rec in consults:
+        d = rec.data
+        base = {"id": str(rec.id), "citizenName": d.get("citizenName", ""), "topic": d.get("topicEn") or d.get("topicBn", ""),
+                "mode": d.get("mode", ""), "status": d.get("status", "")}
+        slots = [d.get("scheduledSlot")] if d.get("scheduledSlot") else (d.get("preferredSlots") or [])[:1] if d.get("status") == "requested" else []
+        for s in slots:
+            if s and first.isoformat() <= s.get("date", "") <= last:
+                sessions.append({**base, "date": s["date"], "time": s.get("time", "")[:5]})
+    rules = await active_rules(db, user.id)
+    extra = await db.scalar(select(AppRecord.data).where(AppRecord.kind == "lawyer_extra", AppRecord.lawyer_id == user.id)) or {}
+    return {
+        "entries": sorted((records.out(e) for e in entries), key=lambda e: (e.get("date", ""), e.get("start", ""))),
+        "consultations": sorted(sessions, key=lambda s: (s["date"], s["time"])),
+        "hours": sorted(({"weekday": WEEKDAYS[r.weekday], "start": r.start_time.strftime("%H:%M"),
+                          "end": r.end_time.strftime("%H:%M")} for r in rules), key=lambda h: (h["weekday"], h["start"])),
+        "vacationMode": bool(extra.get("vacationMode", False)),
+    }
+
+
+@router.post("/lawyers/me/diary")
+async def create_diary_entry(payload: DiaryEntryIn, user: User = Depends(require_roles(UserRole.LAWYER)),
+                             db: AsyncSession = Depends(get_db)) -> dict:
+    _check_entry(payload)
+    now = records.now_iso()
+    rec = await records.create(db, "diary_entry", {**payload.model_dump(), "createdAt": now, "updatedAt": now},
+                               owner_id=user.id, lawyer_id=user.id)
+    conflicts = await _diary_conflicts(db, user.id, payload)
+    await db.commit()
+    return {"entry": records.out(rec), "conflicts": conflicts}
+
+
+@router.put("/lawyers/me/diary/{entry_id}")
+async def update_diary_entry(entry_id: str, payload: DiaryEntryIn, user: User = Depends(require_roles(UserRole.LAWYER)),
+                             db: AsyncSession = Depends(get_db)) -> dict:
+    _check_entry(payload)
+    rec = await _own_entry(db, entry_id, user)
+    records.save(rec, {**rec.data, **payload.model_dump(), "updatedAt": records.now_iso()})
+    conflicts = await _diary_conflicts(db, user.id, payload)
+    await db.commit()
+    return {"entry": records.out(rec), "conflicts": conflicts}
+
+
+@router.delete("/lawyers/me/diary/{entry_id}")
+async def delete_diary_entry(entry_id: str, user: User = Depends(require_roles(UserRole.LAWYER)),
+                             db: AsyncSession = Depends(get_db)) -> dict:
+    rec = await _own_entry(db, entry_id, user)
+    await db.delete(rec)
+    await db.commit()
+    return {"ok": True}

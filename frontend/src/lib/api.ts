@@ -800,6 +800,66 @@ export async function saveMyAvailability(data: LawyerAvailability): Promise<Lawy
   return apiRequest('/lawyers/me/availability', { method: 'PUT', body: JSON.stringify(data) });
 }
 
+// --- LAWYER DIARY / DAY PLANNER ---
+
+export type DiaryKind = 'court' | 'client_meeting' | 'task' | 'personal' | 'other';
+
+export interface DiaryEntryInput {
+  date: string; // YYYY-MM-DD (Bangladesh)
+  start: string; // HH:MM
+  end: string; // HH:MM
+  title: string;
+  kind: DiaryKind;
+  location?: string;
+  notes?: string;
+  /** Busy time: clients can't book a consultation that overlaps it. */
+  blocksBooking: boolean;
+  done: boolean;
+}
+
+export interface DiaryEntry extends DiaryEntryInput {
+  id: string;
+}
+
+export interface DiarySession {
+  id: string;
+  citizenName: string;
+  topic: string;
+  mode: string;
+  status: string;
+  date: string;
+  time: string;
+}
+
+export interface DiaryData {
+  entries: DiaryEntry[];
+  consultations: DiarySession[];
+  hours: { weekday: string; start: string; end: string }[];
+  vacationMode: boolean;
+}
+
+export interface DiarySaveResult {
+  entry: DiaryEntry;
+  /** Booked consultations that fall inside a busy entry. */
+  conflicts: { id: string; time: string; citizenName: string }[];
+}
+
+export async function getMyDiary(start: string, days = 7): Promise<DiaryData> {
+  return apiRequest(`/lawyers/me/diary?start=${encodeURIComponent(start)}&days=${days}`);
+}
+
+export async function createDiaryEntry(entry: DiaryEntryInput): Promise<DiarySaveResult> {
+  return apiRequest('/lawyers/me/diary', { method: 'POST', body: JSON.stringify(entry) });
+}
+
+export async function updateDiaryEntry(id: string, entry: DiaryEntryInput): Promise<DiarySaveResult> {
+  return apiRequest(`/lawyers/me/diary/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(entry) });
+}
+
+export async function deleteDiaryEntry(id: string): Promise<void> {
+  await apiRequest(`/lawyers/me/diary/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
 /** Admin: record that the lawyer was paid for a completed verification or consultation. */
 export interface PayoutDetails {
   method: PaymentMethod;

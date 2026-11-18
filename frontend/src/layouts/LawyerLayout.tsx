@@ -41,7 +41,7 @@ export function LawyerLayout() {
     { to: '/lawyer/messages', labelBn: 'ক্লায়েন্ট মেসেজ', labelEn: 'Client Messages', icon: Mail },
     { to: '/lawyer/meeting', labelBn: 'ভিডিও মিটিং', labelEn: 'Video Meetings', icon: Video },
     { to: '/lawyer/profile', labelBn: 'প্রোফাইল এডিটর', labelEn: 'Profile Editor', icon: UserCheck },
-    { to: '/lawyer/availability', labelBn: 'সময়সূচি ও ফি', labelEn: 'Availability & Fees', icon: Clock },
+    { to: '/lawyer/availability', labelBn: 'ডায়েরি ও সময়সূচি', labelEn: 'Diary & Availability', icon: Clock },
     { to: '/lawyer/notifications', labelBn: 'বিজ্ঞপ্তি', labelEn: 'Notifications', icon: Bell },
     { to: '/lawyer/settings', labelBn: 'অ্যাকাউন্ট সেটিংস', labelEn: 'Settings', icon: Settings },
   ];

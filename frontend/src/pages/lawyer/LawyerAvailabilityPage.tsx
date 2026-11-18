@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { LawyerDiary } from '../../components/lawyer/LawyerDiary';
 import { Clock, Calendar, CheckCircle2, AlertCircle, Save } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
 import { Button } from '../../components/ui/Button';
@@ -6,6 +8,8 @@ import { ApiError, getMyAvailability, saveMyAvailability } from '../../lib/api';
 
 export default function LawyerAvailabilityPage() {
   const { lang } = useLang();
+  const [params, setParams] = useSearchParams();
+  const tab: 'diary' | 'hours' = params.get('tab') === 'hours' ? 'hours' : 'diary';
   const [vacationMode, setVacationMode] = useState(false);
   const [maxActiveConsultations, setMaxActiveConsultations] = useState(5);
   const [saved, setSaved] = useState(false);
@@ -53,24 +57,47 @@ export default function LawyerAvailabilityPage() {
   };
 
   return (
-    <div className="space-y-6 font-body max-w-4xl">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 font-body max-w-5xl">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-bold text-ink">
-            {lang === 'bn' ? 'সাপ্তাহিক সময়সূচি ও প্রাপ্যতা' : 'Weekly Availability & Consultation Slots'}
+            {lang === 'bn' ? 'ডায়েরি ও সময়সূচি' : 'Diary & Availability'}
           </h1>
           <p className="mt-1 text-xs text-granite">
             {lang === 'bn'
-              ? 'নাগরিকদের সাথে সাক্ষাতের নির্দিষ্ট সময় ও ভ্যাকেশন মোড কনফিগারেশন'
-              : 'Set client appointment slots, maximum load, and vacation mode'}
+              ? 'নিজের দিন পরিকল্পনা করুন — আদালত, মিটিং, কাজ। ব্যস্ত সময়ে ক্লায়েন্টরা বুক করতে পারবেন না।'
+              : 'Plan your day — court, meetings, tasks. Busy times are closed to client bookings automatically.'}
           </p>
         </div>
 
-        <Button size="sm" variant="primary" onClick={handleSave} loading={saving}>
-          <Save className="mr-1.5 h-3.5 w-3.5" />
-          <span>Save Availability</span>
-        </Button>
+        {tab === 'hours' && (
+          <Button size="sm" variant="primary" onClick={handleSave} loading={saving}>
+            <Save className="mr-1.5 h-3.5 w-3.5" />
+            <span>{lang === 'bn' ? 'সংরক্ষণ করুন' : 'Save Availability'}</span>
+          </Button>
+        )}
       </div>
+
+      <div role="tablist" className="flex gap-2 border-b border-granite-soft">
+        {([
+          ['diary', lang === 'bn' ? 'দিনের পরিকল্পনা' : 'Day Planner', Calendar],
+          ['hours', lang === 'bn' ? 'সাপ্তাহিক সময়' : 'Weekly Hours', Clock],
+        ] as const).map(([key, label, Icon]) => (
+          <button key={key} type="button" role="tab" aria-selected={tab === key}
+            onClick={() => setParams(key === 'diary' ? {} : { tab: key }, { replace: true })}
+            className={`-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-semibold transition ${
+              tab === key ? 'border-clay-deep text-clay-deep' : 'border-transparent text-granite hover:text-ink'}`}>
+            <Icon className="h-4 w-4" />{label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'diary' ? <LawyerDiary /> : (<>
+      <p className="text-xs text-granite">
+        {lang === 'bn'
+          ? 'যে সময়গুলোতে আপনি সাধারণত পরামর্শ দেন সেগুলো চালু করুন (প্রতিটি ৯০ মিনিট)। ডায়েরিতে ব্যস্ত সময় যোগ করলে সেই স্লট নিজে থেকেই বন্ধ হবে।'
+          : 'Turn on the times you usually take consultations (90 minutes each). Busy entries in your diary close those slots automatically.'}
+      </p>
 
       {error && <div className="p-2.5 rounded bg-brick/10 border border-brick/30 text-xs text-brick font-medium">{error}</div>}
 
@@ -141,6 +168,7 @@ export default function LawyerAvailabilityPage() {
           </table>
         </div>
       </div>
+      </>)}
     </div>
   );
 }

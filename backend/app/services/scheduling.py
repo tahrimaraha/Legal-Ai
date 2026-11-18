@@ -58,6 +58,29 @@ async def booked_slots(db: AsyncSession, lawyer_id: uuid.UUID, exclude_id: Optio
     return taken
 
 
+async def diary_blocks(db: AsyncSession, lawyer_id: uuid.UUID, from_date: Optional[date] = None) -> list[tuple[datetime, datetime, str]]:
+    """The lawyer's own diary entries that make them busy (court, meetings, personal…), as (start, end, title)."""
+    q = select(AppRecord).where(AppRecord.kind == "diary_entry", AppRecord.lawyer_id == lawyer_id)
+    if from_date is not None:
+        q = q.where(AppRecord.data["date"].astext >= from_date.isoformat())
+    out = []
+    for rec in (await db.scalars(q)).all():
+        d = rec.data
+        if not d.get("blocksBooking", True):
+            continue
+        try:
+            start, end = parse_slot(d["date"], d["start"]), parse_slot(d["date"], d["end"])
+        except (KeyError, ValidationAppError):
+            continue
+        out.append((start, end, d.get("title", "")))
+    return out
+
+
+def _busy(start: datetime, minutes: int, blocks: list[tuple[datetime, datetime, str]]) -> Optional[str]:
+    end = start + timedelta(minutes=minutes)
+    return next((title or "busy" for b_start, b_end, title in blocks if start < b_end and b_start < end), None)
+
+
 def _in_rules(when: datetime, rules: list[AvailabilityRule]) -> bool:
     t = when.time()
     return any(r.weekday == when.weekday() and r.start_time <= t < r.end_time for r in rules)
@@ -100,6 +123,15 @@ async def validate_slot(
                 "The lawyer is not available at that time. Please pick one of their open slots.",
                 "এই সময়ে আইনজীবী পাওয়া যাবে না। তাঁর খালি সময়গুলোর একটি নির্বাচন করুন।",
             )
+    rules_for_len = await active_rules(db, lawyer_id)
+    minutes = next((r.slot_minutes for r in rules_for_len if r.weekday == when.weekday() and r.start_time == when.time()), 60)
+    busy = _busy(when, minutes, await diary_blocks(db, lawyer_id, when.date()))
+    if busy:
+        if enforce_hours:
+            raise ConflictError("The lawyer is busy at that time. Please pick another slot.",
+                                "এই সময়ে আইনজীবী ব্যস্ত আছেন। অন্য একটি সময় নির্বাচন করুন।")
+        raise ConflictError(f"Your diary has \"{busy}\" at that time. Pick another time or change the diary entry.",
+                            f"এই সময়ে আপনার ডায়েরিতে \"{busy}\" আছে। অন্য সময় দিন বা ডায়েরি পরিবর্তন করুন।")
     if (when.date().isoformat(), when.strftime("%H:%M")) in await booked_slots(db, lawyer_id, exclude_id):
         raise ConflictError(
             "That time is already booked. Please choose another slot.",
@@ -115,6 +147,7 @@ async def open_slots(db: AsyncSession, lawyer_id: uuid.UUID, days: int = 14) -> 
         return []
     taken = await booked_slots(db, lawyer_id)
     earliest = now_bd() + MIN_LEAD
+    blocks = await diary_blocks(db, lawyer_id, earliest.date())
     out = []
     for offset in range(days + 1):
         day = earliest.date() + timedelta(days=offset)
@@ -124,7 +157,7 @@ async def open_slots(db: AsyncSession, lawyer_id: uuid.UUID, days: int = 14) -> 
             end = datetime.combine(day, r.end_time, tzinfo=BD_TZ)
             while cur + step <= end:
                 key = (day.isoformat(), cur.strftime("%H:%M"))
-                if cur >= earliest and key not in taken:
+                if cur >= earliest and key not in taken and not _busy(cur, int(step.total_seconds() // 60), blocks):
                     out.append({"date": key[0], "time": key[1]})
                 cur += step
     return out
