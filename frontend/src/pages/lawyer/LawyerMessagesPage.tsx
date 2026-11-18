@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useThreadSync } from '../../lib/useThreadSync';
-import { Send, UserCheck, Paperclip, AlertCircle, Video, ArrowRight, Flag } from 'lucide-react';
+import { Send, UserCheck, Paperclip, AlertCircle, Video, ArrowRight, Flag, ArrowLeft } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
 import { useRole } from '../../context/RoleContext';
 import { listThreads, sendThreadMessage, createMeeting, reportThreadMessage } from '../../lib/api';
@@ -26,6 +26,8 @@ export default function LawyerMessagesPage() {
   const { id } = useParams<{ id: string }>();
   const [threads, setThreads] = useState<Thread[]>([]);
   const [activeThread, setActiveThread] = useState<Thread | null>(null);
+  // Phones show one panel at a time: the thread list, or the open chat (with a back button)
+  const [mobileChat, setMobileChat] = useState(!!id);
   const [loading, setLoading] = useState(true);
   const [messageInput, setMessageInput] = useState('');
   const [sending, setSending] = useState(false);
@@ -50,6 +52,13 @@ export default function LawyerMessagesPage() {
   }, [id]);
 
   useThreadSync(activeThread?.id, setActiveThread, setThreads);
+
+  // Keep the newest message in view (on open, after sending, and when new messages arrive)
+  const feedRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = feedRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [activeThread?.id, activeThread?.messages.length, mobileChat]);
 
   const handleSelectThread = (t: Thread) => {
     setActiveThread(t);
@@ -129,9 +138,9 @@ export default function LawyerMessagesPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[600px] rounded border border-granite bg-white overflow-hidden shadow-sm">
+      <div className="flex flex-col lg:grid lg:grid-cols-12 lg:gap-6 h-[calc(100dvh-16.5rem)] min-h-[380px] lg:h-[600px] rounded border border-granite bg-white overflow-hidden shadow-sm">
         {/* Left client thread list (span-4) */}
-        <div className="lg:col-span-4 border-r border-granite-soft flex flex-col bg-bone/30">
+        <div className={`${mobileChat && activeThread ? 'hidden lg:flex' : 'flex'} min-h-0 flex-1 lg:flex-none lg:col-span-4 border-r border-granite-soft flex-col bg-bone/30`}>
           <div className="p-3 border-b border-granite-soft bg-bone">
             <span className="font-mono text-label uppercase text-clay-deep font-semibold">
               Active Client Threads
@@ -145,7 +154,7 @@ export default function LawyerMessagesPage() {
                 <button
                   key={t.id}
                   type="button"
-                  onClick={() => handleSelectThread(t)}
+                  onClick={() => { setMobileChat(true); handleSelectThread(t); }}
                   className={`w-full p-3.5 text-left transition flex items-start gap-3 ${
                     isSelected ? 'bg-clay-tint/70 border-l-4 border-clay-deep' : 'hover:bg-bone'
                   }`}
@@ -170,7 +179,14 @@ export default function LawyerMessagesPage() {
         </div>
 
         {/* Right chat screen (span-8) */}
-        <div className="lg:col-span-8 flex flex-col justify-between h-full bg-white">
+        <div className={`${mobileChat && activeThread ? 'flex' : 'hidden lg:flex'} min-h-0 flex-1 lg:col-span-8 flex-col justify-between lg:h-full bg-white`}>
+          {activeThread && (
+            <button type="button" onClick={() => setMobileChat(false)}
+              className="lg:hidden flex items-center gap-1.5 border-b border-granite-soft bg-white px-3 py-2 text-xs font-semibold text-clay-deep">
+              <ArrowLeft className="h-4 w-4" />
+              {lang === 'bn' ? 'সব কথোপকথন' : 'All chats'}
+            </button>
+          )}
           {activeThread ? (
             <>
               <div className="p-3.5 border-b border-granite-soft bg-bone flex items-center justify-between">
@@ -208,7 +224,7 @@ export default function LawyerMessagesPage() {
                 </div>
               )}
 
-              <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#FAF8F5]">
+              <div ref={feedRef} className="min-h-0 flex-1 overflow-y-auto p-4 space-y-3 bg-[#FAF8F5]">
                 {activeThread.messages.map((m) => {
                   const isLawyer = m.senderRole === 'lawyer';
                   const isReported = reportedIds.has(m.id);

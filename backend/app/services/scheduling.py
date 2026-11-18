@@ -76,10 +76,17 @@ async def validate_slot(
     bookings) inside the lawyer's weekly hours."""
     when = parse_slot(slot_date, slot_time)
     now = now_bd()
-    if when < now + MIN_LEAD:
+    if when < now:
         raise ValidationAppError(
-            "That time has already passed or is too soon. Please choose a time at least 1 hour from now.",
-            "সময়টি পার হয়ে গেছে বা খুব কাছাকাছি। অন্তত ১ ঘণ্টা পরের একটি সময় নির্বাচন করুন।",
+            "That time has already passed. Please choose a later time.",
+            "সময়টি পার হয়ে গেছে। পরের একটি সময় নির্বাচন করুন।",
+        )
+    if when < now + MIN_LEAD:
+        earliest = now + MIN_LEAD + timedelta(minutes=(-(now + MIN_LEAD).minute) % 5)
+        label = earliest.strftime("%I:%M %p").lstrip("0")
+        raise ValidationAppError(
+            f"Too soon — bookings need at least 1 hour's notice. The earliest you can choose today is {label}.",
+            f"খুব কাছাকাছি সময় — অন্তত ১ ঘণ্টা আগে বুক করতে হয়। আজ সবচেয়ে আগে {label} নির্বাচন করা যাবে।",
         )
     if when > now + timedelta(days=MAX_AHEAD_DAYS):
         raise ValidationAppError(

@@ -22,14 +22,26 @@ export function bdDate(addDays = 0): string {
   return new Date(Date.now() + BD_OFFSET_MS + addDays * 86400000).toISOString().slice(0, 10);
 }
 
+/** The earliest bookable slot (now + 1 hour, rounded up to the next 5 minutes), in Bangladesh time. */
+export function earliestSlot(): ConsultationSlot {
+  const step = 5 * 60 * 1000;
+  const t = Math.ceil((Date.now() + MIN_LEAD_MS) / step) * step + BD_OFFSET_MS;
+  const iso = new Date(t).toISOString();
+  return { date: iso.slice(0, 10), time: iso.slice(11, 16) };
+}
+
 /** Returns an error message (en, bn) if the slot can't be booked, else null. */
 export function slotProblem(slot: ConsultationSlot): { en: string; bn: string } | null {
   if (!slot.date || !slot.time) return { en: 'Choose a date and time.', bn: 'তারিখ ও সময় নির্বাচন করুন।' };
-  if (isPastSlot(slot, MIN_LEAD_MS))
+  if (isPastSlot(slot))
+    return { en: 'That time has already passed — choose a later time.', bn: 'সময়টি পার হয়ে গেছে — পরের একটি সময় নির্বাচন করুন।' };
+  if (isPastSlot(slot, MIN_LEAD_MS)) {
+    const e = earliestSlot();
     return {
-      en: 'That time has passed or is too soon — choose a time at least 1 hour from now.',
-      bn: 'সময়টি পার হয়ে গেছে বা খুব কাছাকাছি — অন্তত ১ ঘণ্টা পরের সময় নির্বাচন করুন।',
+      en: `Too soon — bookings need at least 1 hour's notice. Earliest: ${formatSlot(e, 'en')}.`,
+      bn: `খুব কাছাকাছি সময় — অন্তত ১ ঘণ্টা আগে বুক করতে হয়। সবচেয়ে আগে: ${formatSlot(e, 'bn')}।`,
     };
+  }
   if (slotInstant(slot) > Date.now() + MAX_AHEAD_DAYS * 86400000)
     return { en: `Choose a time within the next ${MAX_AHEAD_DAYS} days.`, bn: `আগামী ${MAX_AHEAD_DAYS} দিনের মধ্যে সময় নির্বাচন করুন।` };
   return null;
