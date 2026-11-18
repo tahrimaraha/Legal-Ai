@@ -18,7 +18,7 @@ from app.database import get_db
 from app.models.enums import LawyerApprovalStatus, UserRole
 from app.models.profile import LawyerProfile
 from app.models.user import User
-from app.services import records
+from app.services import payments, records
 from app.services.lawyer_directory import lawyer_name
 
 router = APIRouter()
@@ -33,6 +33,7 @@ class VerificationIn(BaseModel):
     answerText: str = Field(max_length=20000)
     citations: list[dict] = Field(default_factory=list, max_length=20)
     urgency: Literal["normal", "urgent"] = "normal"
+    payment: Optional[payments.PaymentIn] = None  # client paid the platform's bKash/Nagad/Rocket/bank account
 
 
 class AssignIn(BaseModel):
@@ -72,6 +73,14 @@ async def create_verification(
     user: User = Depends(require_roles(UserRole.CITIZEN)),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
+    fee = FEES[payload.urgency]
+    accounts = await payments.platform_accounts(db)
+    payment = None
+    if payload.payment is not None:
+        payment = await payments.build_payment(db, payload.payment, accounts, "LEGAL AI", float(fee))
+    elif payments.methods(accounts):
+        raise ValidationAppError("Pay the verification fee and enter the transaction ID.",
+                                 "যাচাই ফি পরিশোধ করে লেনদেন আইডি দিন।")
     now = records.now_iso()
     rec = await records.create(
         db,
@@ -88,7 +97,8 @@ async def create_verification(
             "citations": payload.citations,
             "status": "pending",
             "urgency": payload.urgency,
-            "feeBdt": FEES[payload.urgency],
+            "feeBdt": fee,
+            "payment": payment,
             "createdAt": now,
             "updatedAt": now,
         },

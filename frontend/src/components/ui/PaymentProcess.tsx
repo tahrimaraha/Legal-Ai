@@ -1,208 +1,308 @@
 import { useState } from 'react';
-import { CreditCard, Smartphone, Clock, CheckCircle2, ArrowRight } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Building2, Check, CheckCircle2, Copy, Loader2, Smartphone } from 'lucide-react';
 import { Button } from './Button';
 import { useLang } from '../../context/LanguageContext';
+import { ApiError, type PayeeAccounts, type PaymentSubmission } from '../../lib/api';
+import type { BankAccount, PaymentMethod } from '../../mocks/types';
 
 interface PaymentProcessProps {
   amount: number;
-  urgency: 'normal' | 'urgent';
-  onPaymentComplete: () => void;
+  /** What is being paid for — shown in the header. */
+  purpose: 'consultation' | 'verification';
+  urgency?: 'normal' | 'urgent';
+  /** Where the money goes: the lawyer (consultations) or the platform (verifications). null while loading. */
+  payee: PayeeAccounts | null;
+  /** Sends the request + payment to the server. `null` = the payee has no accounts set up yet. Throw to show an error. */
+  onSubmit: (payment: PaymentSubmission | null) => Promise<void>;
   onCancel: () => void;
 }
 
-type PaymentStep = 'method' | 'account' | 'processing' | 'success';
+const METHOD: Record<PaymentMethod, { name: string; color: string; wallet: boolean }> = {
+  bkash: { name: 'bKash', color: 'bg-[#e2136e]', wallet: true },
+  nagad: { name: 'Nagad', color: 'bg-[#f6921e]', wallet: true },
+  rocket: { name: 'Rocket', color: 'bg-[#8c3494]', wallet: true },
+  bank: { name: 'Bank transfer', color: 'bg-[#2f5d8a]', wallet: false },
+};
 
-export function PaymentProcess({ amount, urgency, onPaymentComplete, onCancel }: PaymentProcessProps) {
+type Step = 'method' | 'pay' | 'done';
+
+function CopyButton({ value, label }: { value: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(value);
+          setCopied(true);
+          window.setTimeout(() => setCopied(false), 1500);
+        } catch {
+          /* clipboard blocked — the number is still visible */
+        }
+      }}
+      className="inline-flex shrink-0 items-center gap-1 rounded border border-granite px-2 py-1 text-xs font-semibold text-clay-deep hover:bg-clay-tint"
+      aria-label={label}
+    >
+      {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+      {copied ? 'Copied' : 'Copy'}
+    </button>
+  );
+}
+
+/** Manual payment: shows the payee's bKash / Nagad / Rocket / bank account, then collects the sender number + TrxID. */
+export function PaymentProcess({ amount, purpose, urgency, payee, onSubmit, onCancel }: PaymentProcessProps) {
   const { lang } = useLang();
-  const [currentStep, setCurrentStep] = useState<PaymentStep>('method');
-  const [selectedMethod, setSelectedMethod] = useState<'bkash' | 'nagad' | 'rocket' | 'card'>('bkash');
-  const [accountNumber, setAccountNumber] = useState('');
-  const [transactionId, setTransactionId] = useState('');
+  const bn = lang === 'bn';
+  const methods = payee?.methods ?? [];
+  const [step, setStep] = useState<Step>('method');
+  const [method, setMethod] = useState<PaymentMethod | null>(null);
+  const [sender, setSender] = useState('');
+  const [trxId, setTrxId] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
 
-  const paymentMethods = [
-    { id: 'bkash', name: 'bKash', color: 'bg-pink-500', logo: '📱' },
-    { id: 'nagad', name: 'Nagad', color: 'bg-orange-500', logo: '💳' },
-    { id: 'rocket', name: 'Rocket', color: 'bg-purple-500', logo: '🚀' },
-    { id: 'card', name: 'Credit/Debit Card', color: 'bg-blue-500', logo: '💳' }
-  ];
+  const chosen = method ?? methods[0] ?? null;
+  const wallet = chosen ? METHOD[chosen].wallet : true;
+  const payTo = chosen && payee ? payee.accounts[chosen] : undefined;
+  const senderOk = wallet ? /^01[3-9]\d{8}\d?$/.test(sender.replace(/\D/g, '').replace(/^88/, '')) : sender.trim().length >= 3;
+  const trxOk = /^[A-Za-z0-9-]{6,30}$/.test(trxId.trim());
+  const taka = (n: number) => (bn ? `৳${String(n).replace(/\d/g, (d) => '০১২৩৪৫৬৭৮৯'[+d])}` : `৳${n}`);
 
-  const handleMethodSelect = () => {
-    setCurrentStep('account');
-  };
-
-  const handleAccountSubmit = () => {
-    if (accountNumber.length >= 10 && transactionId.length >= 6) {
-      setCurrentStep('processing');
-      setTimeout(() => {
-        setCurrentStep('success');
-        setTimeout(onPaymentComplete, 1500);
-      }, 2000);
+  const submit = async (payment: PaymentSubmission | null) => {
+    if (busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      await onSubmit(payment);
+      setStep('done');
+    } catch (err) {
+      setError(err instanceof ApiError ? (bn ? err.messageBn : err.message) : bn ? 'জমা দেওয়া যায়নি। আবার চেষ্টা করুন।' : 'Could not submit. Please try again.');
+    } finally {
+      setBusy(false);
     }
   };
 
-  return (
-    <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
-      {/* Header */}
-      <div className="bg-clay text-white p-4 text-center">
-        <h3 className="font-display text-lg font-bold">
-          {lang === 'bn' ? 'যাচাই ফি পেমেন্ট' : 'Verification Payment'}
-        </h3>
-        <div className="mt-2 text-clay-tint">
-          <span className="text-2xl font-bold">৳{amount}</span>
+  const header = (
+    <div className="bg-clay p-4 text-center text-white">
+      <h3 className="font-display text-lg font-bold">
+        {purpose === 'consultation' ? (bn ? 'পরামর্শ ফি' : 'Consultation Fee') : bn ? 'যাচাই ফি' : 'Verification Fee'}
+      </h3>
+      <div className="mt-1 text-clay-tint">
+        <span className="text-2xl font-bold">{taka(amount)}</span>
+        {urgency && (
           <span className="ml-2 text-sm opacity-90">
-            ({urgency === 'urgent' ? (lang === 'bn' ? 'জরুরি' : 'Urgent') : (lang === 'bn' ? 'সাধারণ' : 'Standard')})
+            ({urgency === 'urgent' ? (bn ? 'জরুরি' : 'Urgent') : bn ? 'সাধারণ' : 'Standard'})
           </span>
-        </div>
+        )}
       </div>
+      {payee && (
+        <p className="mt-1 text-xs text-clay-tint/90">
+          {bn ? 'প্রাপক: ' : 'Paid to: '}
+          <strong className="text-white">{payee.payeeName}</strong>
+        </p>
+      )}
+    </div>
+  );
 
-      {/* Payment Method Selection */}
-      {currentStep === 'method' && (
-        <div className="p-6 space-y-4">
-          <h4 className="font-semibold text-ink mb-4">
-            {lang === 'bn' ? 'পেমেন্ট পদ্ধতি নির্বাচন করুন' : 'Select Payment Method'}
-          </h4>
-          
-          <div className="space-y-3">
-            {paymentMethods.map((method) => (
+  const errorBox = error && (
+    <div role="alert" className="flex items-start gap-2 rounded border border-brick/30 bg-brick/10 p-3 text-sm text-brick">
+      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+      <span>{error}</span>
+    </div>
+  );
+
+  return (
+    <div className="mx-auto max-w-md overflow-hidden rounded-lg bg-white shadow-lg">
+      {header}
+
+      {!payee && (
+        <div className="flex items-center justify-center gap-2 p-8 text-sm text-granite">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          {bn ? 'পেমেন্ট তথ্য লোড হচ্ছে…' : 'Loading payment details…'}
+        </div>
+      )}
+
+      {/* Payee has not added any account yet */}
+      {payee && methods.length === 0 && step !== 'done' && (
+        <div className="space-y-4 p-6">
+          <div className="rounded border border-granite-soft bg-bone p-4 text-sm text-ink-soft">
+            {purpose === 'consultation'
+              ? bn
+                ? 'এই আইনজীবী এখনো পেমেন্টের নম্বর যোগ করেননি। এখন অনুরোধ পাঠান — আইনজীবী গ্রহণ করার পর বার্তায় পেমেন্টের তথ্য জানিয়ে দেবেন।'
+                : 'This lawyer has not added payment details yet. Send the request now — the lawyer will share how to pay after accepting it.'
+              : bn
+                ? 'প্ল্যাটফর্মের পেমেন্ট নম্বর এখনো যোগ করা হয়নি। অনুরোধটি পাঠান — অ্যাডমিন পেমেন্টের বিষয়ে যোগাযোগ করবেন।'
+                : 'Platform payment details are not set up yet. Send the request — an admin will contact you about payment.'}
+          </div>
+          {errorBox}
+          <Button variant="primary" size="md" className="w-full" loading={busy} onClick={() => void submit(null)}>
+            {purpose === 'consultation' ? (bn ? 'অনুরোধ পাঠান' : 'Send request') : bn ? 'অনুরোধ পাঠান' : 'Send request'}
+          </Button>
+          <Button variant="ghost" size="sm" className="w-full" onClick={onCancel}>
+            {bn ? 'বাতিল' : 'Cancel'}
+          </Button>
+        </div>
+      )}
+
+      {/* Step 1: choose how to pay */}
+      {payee && methods.length > 0 && step === 'method' && (
+        <div className="space-y-4 p-6">
+          <h4 className="font-semibold text-ink">{bn ? 'কীভাবে পেমেন্ট করবেন?' : 'How will you pay?'}</h4>
+          <div className="space-y-2">
+            {methods.map((m) => (
               <button
-                key={method.id}
-                onClick={() => setSelectedMethod(method.id as any)}
-                className={`w-full p-4 rounded-lg border-2 transition flex items-center gap-3 ${
-                  selectedMethod === method.id
-                    ? 'border-clay bg-clay-tint text-clay-deep'
-                    : 'border-granite hover:border-clay hover:bg-bone'
+                key={m}
+                type="button"
+                onClick={() => setMethod(m)}
+                className={`flex w-full items-center gap-3 rounded-lg border-2 p-3 text-left transition ${
+                  chosen === m ? 'border-clay bg-clay-tint text-clay-deep' : 'border-granite hover:border-clay hover:bg-bone'
                 }`}
               >
-                <div className={`w-10 h-10 rounded ${method.color} flex items-center justify-center text-white text-lg`}>
-                  {method.logo}
-                </div>
-                <span className="font-medium">{method.name}</span>
-                {selectedMethod === method.id && (
-                  <CheckCircle2 className="h-5 w-5 text-clay-deep ml-auto" />
-                )}
+                <span className={`flex h-9 w-9 items-center justify-center rounded text-white ${METHOD[m].color}`}>
+                  {METHOD[m].wallet ? <Smartphone className="h-4 w-4" /> : <Building2 className="h-4 w-4" />}
+                </span>
+                <span className="font-medium">{m === 'bank' && bn ? 'ব্যাংক ট্রান্সফার' : METHOD[m].name}</span>
+                {chosen === m && <CheckCircle2 className="ml-auto h-5 w-5 text-clay-deep" />}
               </button>
             ))}
           </div>
-
-          <div className="pt-4 border-t border-granite-soft">
-            <Button variant="primary" size="md" onClick={handleMethodSelect} className="w-full">
-              {lang === 'bn' ? 'পরবর্তী' : 'Continue'}
-              <ArrowRight className="ml-2 h-4 w-4" />
+          <div className="space-y-2 border-t border-granite-soft pt-4">
+            <Button variant="primary" size="md" className="w-full" onClick={() => setStep('pay')}>
+              {bn ? 'পরবর্তী' : 'Continue'}
             </Button>
-            <Button variant="ghost" size="sm" onClick={onCancel} className="w-full mt-2">
-              {lang === 'bn' ? 'বাতিল' : 'Cancel'}
+            <Button variant="ghost" size="sm" className="w-full" onClick={onCancel}>
+              {bn ? 'বাতিল' : 'Cancel'}
             </Button>
           </div>
         </div>
       )}
 
-      {/* Account & Transaction Details */}
-      {currentStep === 'account' && (
-        <div className="p-6 space-y-4">
-          <div className="text-center space-y-2">
-            <Smartphone className="h-12 w-12 text-clay-deep mx-auto" />
-            <h4 className="font-semibold text-ink">
-              {lang === 'bn' ? 'পেমেন্ট বিবরণ দিন' : 'Enter Payment Details'}
-            </h4>
-            <p className="text-sm text-granite">
-              {lang === 'bn' 
-                ? `আপনার ${paymentMethods.find(m => m.id === selectedMethod)?.name} একাউন্ট নম্বর এবং লেনদেন আইডি দিন`
-                : `Enter your ${paymentMethods.find(m => m.id === selectedMethod)?.name} account number and transaction ID`}
+      {/* Step 2: pay, then enter the sender + TrxID */}
+      {payee && chosen && step === 'pay' && (
+        <form
+          className="space-y-4 p-6"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (senderOk && trxOk) void submit({ method: chosen, senderAccount: sender.trim(), trxId: trxId.trim().toUpperCase() });
+          }}
+        >
+          <div className="space-y-2 rounded-lg border border-clay/40 bg-clay-tint/40 p-4">
+            <p className="text-sm font-semibold text-ink">
+              {wallet
+                ? bn
+                  ? `১. ${METHOD[chosen].name} অ্যাপে "Send Money" করে ${taka(amount)} পাঠান এই নম্বরে:`
+                  : `1. In your ${METHOD[chosen].name} app, use "Send Money" to send ${taka(amount)} to:`
+                : bn
+                  ? `১. এই ব্যাংক একাউন্টে ${taka(amount)} ট্রান্সফার করুন:`
+                  : `1. Transfer ${taka(amount)} to this bank account:`}
+            </p>
+            {wallet && typeof payTo === 'string' && (
+              <div className="flex items-center justify-between gap-2 rounded border border-granite bg-white px-3 py-2">
+                <span className="min-w-0 font-mono text-lg font-bold tracking-wide text-ink sm:text-xl sm:tracking-wider">{payTo}</span>
+                <CopyButton value={payTo} label={bn ? 'নম্বর কপি করুন' : 'Copy number'} />
+              </div>
+            )}
+            {!wallet && payTo && typeof payTo === 'object' && (
+              <dl className="space-y-1.5 rounded border border-granite bg-white p-3 text-sm">
+                {(
+                  [
+                    [bn ? 'ব্যাংক' : 'Bank', (payTo as BankAccount).bankName],
+                    [bn ? 'একাউন্টের নাম' : 'Account name', (payTo as BankAccount).accountName],
+                    [bn ? 'একাউন্ট নম্বর' : 'Account number', (payTo as BankAccount).accountNumber],
+                    [bn ? 'শাখা' : 'Branch', (payTo as BankAccount).branch],
+                    [bn ? 'রাউটিং নম্বর' : 'Routing number', (payTo as BankAccount).routingNumber],
+                  ] as [string, string | undefined][]
+                )
+                  .filter(([, v]) => v)
+                  .map(([k, v]) => (
+                    <div key={k} className="flex items-center justify-between gap-2">
+                      <dt className="text-granite">{k}</dt>
+                      <dd className="flex items-center gap-2 text-right font-semibold text-ink">
+                        <span className="break-all">{v}</span>
+                        {k.includes('number') || k.includes('নম্বর') ? <CopyButton value={v!} label={k} /> : null}
+                      </dd>
+                    </div>
+                  ))}
+              </dl>
+            )}
+            <p className="text-xs text-ink-soft">
+              {bn ? 'প্রাপক: ' : 'Receiver: '}
+              <strong>{payee.payeeName}</strong>
+              {wallet && (bn ? ' · Cash Out বা Payment নয়, Send Money ব্যবহার করুন।' : ' · Use Send Money, not Cash Out or Payment.')}
             </p>
           </div>
 
-          <div className="space-y-3">
-            <div>
-              <label className="block text-sm font-medium text-ink mb-2">
-                {lang === 'bn' ? 'একাউন্ট নম্বর' : 'Account Number'}
-              </label>
-              <input
-                type="text"
-                value={accountNumber}
-                onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, ''))}
-                placeholder={lang === 'bn' ? '০১৭XXXXXXXX' : '01XXXXXXXXX'}
-                className="w-full p-3 border border-granite rounded text-center font-mono text-lg tracking-wide focus:border-clay focus:ring-1 focus:ring-clay outline-none"
-                maxLength={15}
-              />
-              <p className="text-xs text-granite mt-1">
-                {lang === 'bn' ? 'সংখ্যা শুধুমাত্র' : 'Numbers only'}
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-ink mb-2">
-                {lang === 'bn' ? 'লেনদেন আইডি' : 'Transaction ID'}
-              </label>
-              <input
-                type="text"
-                value={transactionId}
-                onChange={(e) => setTransactionId(e.target.value.toUpperCase())}
-                placeholder={lang === 'bn' ? 'TXN1234567' : 'TXN1234567'}
-                className="w-full p-3 border border-granite rounded text-center font-mono text-lg tracking-wide focus:border-clay focus:ring-1 focus:ring-clay outline-none"
-                maxLength={20}
-              />
-              <p className="text-xs text-granite mt-1">
-                {lang === 'bn' ? 'পেমেন্ট সেবা প্রদানকারীর থেকে পান' : 'Get this from your payment provider'}
-              </p>
-            </div>
+          <p className="text-sm font-semibold text-ink">{bn ? '২. পেমেন্টের পর নিচের তথ্য দিন:' : '2. After paying, enter:'}</p>
+          <div>
+            <label htmlFor="pay-sender" className="mb-1 block text-sm font-medium text-ink">
+              {wallet ? (bn ? 'যে নম্বর থেকে পাঠিয়েছেন' : 'Number you paid from') : bn ? 'আপনার একাউন্টের নাম/নম্বর' : 'Your account name / number'}
+            </label>
+            <input
+              id="pay-sender"
+              inputMode={wallet ? 'numeric' : 'text'}
+              value={sender}
+              onChange={(e) => setSender(wallet ? e.target.value.replace(/[^\d+]/g, '') : e.target.value)}
+              placeholder={wallet ? '01XXXXXXXXX' : bn ? 'যেমন: রহিম, 1234…' : 'e.g. Rahim, 1234…'}
+              maxLength={wallet ? 14 : 60}
+              className="w-full rounded border border-granite p-3 text-center font-mono text-lg tracking-wide outline-none focus:border-clay focus:ring-1 focus:ring-clay"
+              required
+            />
           </div>
-
-          <div className="bg-blue-50 border border-blue-200 rounded p-3">
-            <p className="text-xs text-blue-800">
-              {lang === 'bn' 
-                ? '📝 নিশ্চিত করুন যে একাউন্ট নম্বর এবং লেনদেন আইডি সঠিক, কারণ এটি যাচাই করা হবে'
-                : '📝 Ensure account number and transaction ID are correct - they will be verified'}
+          <div>
+            <label htmlFor="pay-trx" className="mb-1 block text-sm font-medium text-ink">
+              {wallet ? (bn ? 'লেনদেন আইডি (TrxID)' : 'Transaction ID (TrxID)') : bn ? 'লেনদেন / রেফারেন্স নম্বর' : 'Transaction / reference number'}
+            </label>
+            <input
+              id="pay-trx"
+              value={trxId}
+              onChange={(e) => setTrxId(e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ''))}
+              placeholder="8N7A6XXXXX"
+              maxLength={30}
+              className="w-full rounded border border-granite p-3 text-center font-mono text-lg tracking-wide outline-none focus:border-clay focus:ring-1 focus:ring-clay"
+              required
+            />
+            <p className="mt-1 text-xs text-granite">
+              {wallet
+                ? bn
+                  ? `${METHOD[chosen].name} থেকে আসা SMS বা অ্যাপের লেনদেন ইতিহাসে পাবেন।`
+                  : `Find it in the ${METHOD[chosen].name} SMS or the app's transaction history.`
+                : bn
+                  ? 'ব্যাংকের রসিদ বা অ্যাপে পাবেন।'
+                  : 'Shown on your bank receipt or app.'}
             </p>
           </div>
-
-          <div className="pt-4 space-y-2">
-            <Button 
-              variant="primary" 
-              size="md" 
-              onClick={handleAccountSubmit} 
-              className="w-full"
-              disabled={accountNumber.length < 10 || transactionId.length < 6}
-            >
-              {lang === 'bn' ? 'পেমেন্ট যাচাই করুন' : 'Verify Payment'}
+          {errorBox}
+          <div className="space-y-2 pt-2">
+            <Button type="submit" variant="primary" size="md" className="w-full" loading={busy} disabled={!senderOk || !trxOk}>
+              {bn ? 'পেমেন্টের তথ্য জমা দিন' : 'Submit payment details'}
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => setCurrentStep('method')} className="w-full">
-              {lang === 'bn' ? 'পিছনে' : 'Back'}
+            <Button type="button" variant="ghost" size="sm" className="w-full" onClick={() => setStep('method')}>
+              <ArrowLeft className="mr-1 h-3.5 w-3.5" />
+              {bn ? 'পিছনে' : 'Back'}
             </Button>
           </div>
-        </div>
+        </form>
       )}
 
-      {/* Processing */}
-      {currentStep === 'processing' && (
-        <div className="p-8 text-center space-y-4">
-          <div className="w-16 h-16 bg-clay-tint rounded-full flex items-center justify-center mx-auto animate-pulse">
-            <CreditCard className="h-8 w-8 text-clay-deep" />
+      {/* Done */}
+      {step === 'done' && (
+        <div className="space-y-3 p-8 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-100">
+            <CheckCircle2 className="h-9 w-9 text-green-600" />
           </div>
-          <h4 className="font-semibold text-ink">
-            {lang === 'bn' ? 'পেমেন্ট যাচাই হচ্ছে...' : 'Verifying Payment...'}
-          </h4>
+          <h4 className="font-semibold text-ink">{bn ? 'জমা হয়েছে' : 'Submitted'}</h4>
           <p className="text-sm text-granite">
-            {lang === 'bn' 
-              ? 'অনুগ্রহ করে অপেক্ষা করুন, আমরা আপনার লেনদেন যাচাই করছি'
-              : 'Please wait while we verify your transaction'}
-          </p>
-          <div className="animate-spin mx-auto w-6 h-6 border-2 border-clay-tint border-t-clay rounded-full"></div>
-        </div>
-      )}
-
-      {/* Success */}
-      {currentStep === 'success' && (
-        <div className="p-8 text-center space-y-4">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-            <CheckCircle2 className="h-10 w-10 text-green-600" />
-          </div>
-          <h4 className="font-semibold text-ink">
-            {lang === 'bn' ? 'পেমেন্ট সফল!' : 'Payment Successful!'}
-          </h4>
-          <p className="text-sm text-granite">
-            {lang === 'bn' 
-              ? 'আপনার যাচাইয়ের অনুরোধ পাঠানো হচ্ছে...'
-              : 'Submitting your verification request...'}
+            {methods.length === 0
+              ? bn
+                ? 'আপনার অনুরোধ পাঠানো হয়েছে।'
+                : 'Your request has been sent.'
+              : purpose === 'consultation'
+                ? bn
+                  ? 'আইনজীবী লেনদেনটি মিলিয়ে দেখে নিশ্চিত করবেন। ফলাফল নোটিফিকেশনে জানানো হবে।'
+                  : 'The lawyer will check the transaction and confirm it. You will get a notification.'
+                : bn
+                  ? 'অ্যাডমিন লেনদেনটি মিলিয়ে দেখে নিশ্চিত করবেন। ফলাফল নোটিফিকেশনে জানানো হবে।'
+                  : 'An admin will check the transaction and confirm it. You will get a notification.'}
           </p>
         </div>
       )}

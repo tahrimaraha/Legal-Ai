@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.api.v1 import admin, auth, chat, consultations, conversations, lawyers, meeting_signal, messaging, user_data, verifications
+from app.api.v1 import admin, auth, chat, consultations, conversations, lawyers, meeting_signal, messaging, payments, user_data, verifications
 
 api_router = APIRouter()
 
@@ -22,6 +22,7 @@ api_router.include_router(consultations.router, tags=["consultations"])
 api_router.include_router(meeting_signal.router, tags=["meetings"])
 api_router.include_router(messaging.router, tags=["messaging"])
 api_router.include_router(user_data.router, tags=["documents", "notifications"])
+api_router.include_router(payments.router, tags=["payments"])
 api_router.include_router(admin.router, tags=["admin"])
 
 # Further routers are registered here as they are implemented.

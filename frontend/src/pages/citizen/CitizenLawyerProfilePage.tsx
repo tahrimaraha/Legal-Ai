@@ -17,7 +17,7 @@ import {
   MessageSquareText,
 } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
-import { getLawyerById, createConsultationRequest, listLawyerReviews, getLawyerOpenSlots, ApiError } from '../../lib/api';
+import { getLawyerById, createConsultationRequest, listLawyerReviews, getLawyerOpenSlots, getLawyerPaymentAccounts, ApiError, type PayeeAccounts, type PaymentSubmission } from '../../lib/api';
 import { OpenSlotPicker, DateTimeFields } from '../../components/ui/SlotPicker';
 import { bdDate, slotProblem, formatSlot } from '../../lib/slots';
 import { StatusBadge } from '../../components/ui/StatusBadge';
@@ -42,6 +42,7 @@ export default function CitizenLawyerProfilePage() {
   // Booking Modal State
   const [modalOpen, setModalOpen] = useState(false);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [payee, setPayee] = useState<PayeeAccounts | null>(null);
   const [bookingStep, setBookingStep] = useState(0);
   const [topic, setTopic] = useState('');
   const [description, setDescription] = useState('');
@@ -51,7 +52,6 @@ export default function CitizenLawyerProfilePage() {
   const [pickedSlot, setPickedSlot] = useState<ConsultationSlot | null>(null);
   const [customSlot, setCustomSlot] = useState<ConsultationSlot>({ date: bdDate(1), time: '10:00' });
   const [bookingError, setBookingError] = useState<string | null>(null);
-  const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(false);
 
   useEffect(() => {
@@ -109,38 +109,33 @@ export default function CitizenLawyerProfilePage() {
     }
     setBookingError(null);
     setModalOpen(false);
+    setPayee(null);
     setPaymentModalOpen(true);
+    // The consultation fee is paid to the lawyer's own bKash / Nagad / Rocket / bank account.
+    getLawyerPaymentAccounts(lawyer.id)
+      .then(setPayee)
+      .catch(() => setPayee({ payeeName: lawyer.fullName, accounts: {}, methods: [] }));
   };
 
-  const handlePaymentComplete = () => {
+  /** Books the consultation together with the payment the client made (throws so the payment form shows errors). */
+  const handlePaymentSubmit = async (payment: PaymentSubmission | null) => {
+    await createConsultationRequest({
+      lawyerId: lawyer.id,
+      topic: topic || 'পারিবারিক ও আইনি পরামর্শ',
+      description,
+      mode,
+      feeBdt: selectedFee,
+      slots: chosenSlot ? [chosenSlot] : [],
+      payment: payment ?? undefined,
+    });
     setPaymentModalOpen(false);
-    handleSubmitBooking();
+    setBookingSuccess(true);
+    setModalOpen(true);
   };
 
   const handleCancelPayment = () => {
     setPaymentModalOpen(false);
     setModalOpen(true);
-  };
-
-  const handleSubmitBooking = async () => {
-    setBookingLoading(true);
-    try {
-      await createConsultationRequest({
-        lawyerId: lawyer.id,
-        topic: topic || 'পারিবারিক ও আইনি পরামর্শ',
-        description,
-        mode,
-        feeBdt: selectedFee,
-        slots: chosenSlot ? [chosenSlot] : [],
-      });
-      setBookingSuccess(true);
-    } catch (err) {
-      // e.g. the slot was taken meanwhile: reopen the form with the reason.
-      setBookingError(err instanceof ApiError ? (lang === 'bn' ? err.messageBn : err.message) : String(err));
-      setModalOpen(true);
-    } finally {
-      setBookingLoading(false);
-    }
   };
 
   return (
@@ -520,8 +515,9 @@ export default function CitizenLawyerProfilePage() {
       >
         <PaymentProcess
           amount={selectedFee}
-          urgency="normal"
-          onPaymentComplete={handlePaymentComplete}
+          purpose="consultation"
+          payee={payee}
+          onSubmit={handlePaymentSubmit}
           onCancel={handleCancelPayment}
         />
       </Modal>

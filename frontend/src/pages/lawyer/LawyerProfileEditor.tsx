@@ -9,6 +9,8 @@ import { Input, Textarea } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { Skeleton } from '../../components/ui/EmptyState';
 import type { LawyerProfile } from '../../mocks/types';
+import { PaymentAccountsForm } from '../../components/ui/PaymentAccountsForm';
+import { getMyPaymentAccounts, saveMyPaymentAccounts } from '../../lib/api';
 
 export default function LawyerProfileEditor() {
   const { lang, num } = useLang();
@@ -195,6 +197,16 @@ export default function LawyerProfileEditor() {
           </div>
         </div>
       </div>
+      <PaymentAccountsForm
+        title={lang === 'bn' ? 'পরামর্শ ফি গ্রহণের একাউন্ট' : 'Where clients pay your consultation fee'}
+        description={
+          lang === 'bn'
+            ? 'নাগরিক পরামর্শ বুক করার সময় এই নম্বর/একাউন্ট দেখবেন এবং এখানে টাকা পাঠিয়ে লেনদেন আইডি দেবেন। আপনি পরামর্শের পাতায় পেমেন্ট নিশ্চিত করবেন।'
+            : 'Clients see these when booking you, send the fee here and enter the transaction ID. You confirm each payment on the consultation page.'
+        }
+        load={getMyPaymentAccounts}
+        save={saveMyPaymentAccounts}
+      />
     </div>
   );
 }

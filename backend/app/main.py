@@ -97,14 +97,23 @@ async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
 async def validation_error_handler(
     request: Request, exc: RequestValidationError
 ) -> JSONResponse:
+    # Custom validators put the raised ValueError in "ctx"; make every error JSON-safe (it used to crash here)
+    errors = []
+    for err in exc.errors():
+        err = dict(err)
+        if "ctx" in err:
+            err["ctx"] = {k: str(v) for k, v in err["ctx"].items()}
+        errors.append(err)
+    # Our own validators carry a human message ("Value error, Enter an 11-digit …") — show it to the user
+    custom = next((e["msg"].removeprefix("Value error, ") for e in errors if e.get("type") == "value_error"), None)
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={
             "error": {
                 "code": "VALIDATION_ERROR",
-                "message_en": "The submitted data is invalid.",
+                "message_en": custom or "The submitted data is invalid.",
                 "message_bn": "প্রদত্ত তথ্য সঠিক নয়।",
-                "details": {"errors": exc.errors()},
+                "details": {"errors": errors},
             }
         },
     )

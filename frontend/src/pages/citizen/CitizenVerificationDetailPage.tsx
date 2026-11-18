@@ -11,7 +11,10 @@ import {
   Briefcase,
 } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
-import { getVerificationById } from '../../lib/api';
+import { getVerificationById, getPlatformPaymentAccounts, submitPayment, type PayeeAccounts, type PaymentSubmission } from '../../lib/api';
+import { PaymentStatusCard } from '../../components/ui/PaymentStatusCard';
+import { PaymentProcess } from '../../components/ui/PaymentProcess';
+import { Modal } from '../../components/ui/Modal';
 import { StatusBadge, VerifiedBadge } from '../../components/ui/StatusBadge';
 import { Button } from '../../components/ui/Button';
 import { Skeleton, ErrorState } from '../../components/ui/EmptyState';
@@ -23,6 +26,8 @@ export default function CitizenVerificationDetailPage() {
   const navigate = useNavigate();
   const [request, setRequest] = useState<VerificationRequest | null>(null);
   const [loading, setLoading] = useState(true);
+  const [payOpen, setPayOpen] = useState(false);
+  const [payee, setPayee] = useState<PayeeAccounts | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -58,6 +63,22 @@ export default function CitizenVerificationDetailPage() {
   }
 
   const { verdict } = request;
+
+  const canPay = ['pending', 'claimed'].includes(request.status) && (!request.payment || request.payment.status === 'rejected');
+  const openPay = () => {
+    setPayee(null);
+    setPayOpen(true);
+    getPlatformPaymentAccounts()
+      .then(setPayee)
+      .catch(() => setPayee({ payeeName: 'LEGAL AI', accounts: {}, methods: [] }));
+  };
+  const handlePay = async (payment: PaymentSubmission | null) => {
+    if (payment) {
+      const updated = await submitPayment('verification', request.id, payment);
+      setRequest({ ...request, payment: updated.payment });
+    }
+    setPayOpen(false);
+  };
 
   return (
     <div className="space-y-6 font-body">
@@ -122,6 +143,7 @@ export default function CitizenVerificationDetailPage() {
 
         {/* Right Column: Lawyer Verdict & Corrected Explanation (span-6) */}
         <div className="lg:col-span-6 space-y-6">
+          <PaymentStatusCard payment={request.payment} kind="verification" recordId={request.id} onPayAgain={canPay ? openPay : undefined} />
           {verdict ? (
             <div className="rounded border-2 border-clay bg-white p-6 shadow-composer space-y-6">
               {/* Lawyer Identity & Verdict Header */}
@@ -216,6 +238,9 @@ export default function CitizenVerificationDetailPage() {
           )}
         </div>
       </div>
+      <Modal open={payOpen} onClose={() => setPayOpen(false)} title={lang === 'bn' ? 'যাচাই ফি পেমেন্ট' : 'Verification Payment'}>
+        <PaymentProcess amount={request.feeBdt} purpose="verification" urgency={request.urgency} payee={payee} onSubmit={handlePay} onCancel={() => setPayOpen(false)} />
+      </Modal>
     </div>
   );
 }

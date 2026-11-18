@@ -18,6 +18,7 @@ import { Textarea } from '../../components/ui/Input';
 import { Skeleton, ErrorState } from '../../components/ui/EmptyState';
 import type { ConsultationRequest } from '../../mocks/types';
 import { formatSlot, isPastSlot } from '../../lib/slots';
+import { PaymentStatusCard } from '../../components/ui/PaymentStatusCard';
 
 export default function LawyerConsultationDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -81,6 +82,13 @@ export default function LawyerConsultationDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Column: Client Details, Notes (span-7) */}
         <div className="lg:col-span-7 space-y-6">
+          <PaymentStatusCard
+            payment={consultation.payment}
+            kind="consultation"
+            recordId={consultation.id}
+            canReview
+            onChange={(payment) => setConsultation({ ...consultation, payment })}
+          />
           <div className="rounded border border-granite bg-white p-6 shadow-sm space-y-4">
             <div>
               <span className="font-mono text-[10px] text-granite uppercase block">Client Inquiry</span>

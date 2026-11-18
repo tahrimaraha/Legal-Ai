@@ -5,31 +5,7 @@
  */
 import { statutesData } from '../data/statutes';
 import { mockDraftTemplates, mockGlossary } from '../mocks';
-import type {
-  AdminStats,
-  AppNotification,
-  Citation,
-  ConsultationRequest,
-  ConsultationSlot,
-  Conversation,
-  CorpusDocument,
-  DraftDocument,
-  DraftTemplate,
-  FlaggedAnswer,
-  GlossaryTerm,
-  LawyerProfile,
-  LawyerRecommendation,
-  LawyerReview,
-  Meeting,
-  Message,
-  MessageReport,
-  Statute,
-  Thread,
-  User,
-  VerificationRequest,
-  VerificationVerdict,
-  VerdictType,
-} from '../mocks/types';
+import type { AdminStats, AppNotification, Citation, ConsultationRequest, ConsultationSlot, Conversation, CorpusDocument, DraftDocument, DraftTemplate, FlaggedAnswer, GlossaryTerm, LawyerProfile, LawyerRecommendation, LawyerReview, Meeting, Message, MessageReport, Statute, Thread, User, VerificationRequest, VerificationVerdict, VerdictType, PaymentAccounts, PaymentMethod } from '../mocks/types';
 import { getSessionToken, getSessionUserId, replaceSessionToken } from './session';
 
 const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -501,6 +477,12 @@ export async function getVerificationById(id: string): Promise<VerificationReque
   return orUndefined(apiRequest<VerificationRequest>(`/verifications/${encodeURIComponent(id)}`));
 }
 
+export interface PaymentSubmission {
+  method: PaymentMethod;
+  senderAccount: string;
+  trxId: string;
+}
+
 export async function createVerificationRequest(data: {
   conversationId: string;
   messageId: string;
@@ -508,6 +490,7 @@ export async function createVerificationRequest(data: {
   answerText: string;
   citations: Citation[];
   urgency?: 'normal' | 'urgent';
+  payment?: PaymentSubmission;
 }): Promise<VerificationRequest> {
   return post('/verifications', { ...data, urgency: data.urgency || 'normal' });
 }
@@ -574,6 +557,7 @@ export async function createConsultationRequest(data: {
   feeBdt: number;
   slots: ConsultationSlot[];
   attachments?: { name: string; size: string; url: string }[];
+  payment?: PaymentSubmission;
 }): Promise<ConsultationRequest> {
   return post('/consultations', { ...data, attachments: data.attachments ?? [] });
 }
@@ -847,4 +831,42 @@ export interface ModelReport {
 
 export async function getModelReport(): Promise<ModelReport> {
   return apiRequest<ModelReport>('/ai/model-report');
+}
+
+// ——— Manual payments (bKash / Nagad / Rocket / bank) ———
+// Consultation fees go to the lawyer's accounts; verification fees go to the platform (admin) accounts.
+export interface PayeeAccounts {
+  payeeName: string;
+  accounts: PaymentAccounts;
+  methods: PaymentMethod[];
+}
+
+export async function getLawyerPaymentAccounts(lawyerId: string): Promise<PayeeAccounts> {
+  return apiRequest(`/payments/lawyers/${encodeURIComponent(lawyerId)}/accounts`);
+}
+
+export async function getPlatformPaymentAccounts(): Promise<PayeeAccounts> {
+  return apiRequest('/payments/platform-accounts');
+}
+
+export async function getMyPaymentAccounts(): Promise<PaymentAccounts> {
+  return apiRequest('/payments/my-accounts');
+}
+
+export async function saveMyPaymentAccounts(accounts: PaymentAccounts): Promise<PaymentAccounts> {
+  return apiRequest('/payments/my-accounts', { method: 'PUT', body: JSON.stringify(accounts) });
+}
+
+export async function savePlatformPaymentAccounts(accounts: PaymentAccounts): Promise<PaymentAccounts> {
+  return apiRequest('/admin/payment-accounts', { method: 'PUT', body: JSON.stringify(accounts) });
+}
+
+export async function submitPayment(kind: 'consultation' | 'verification', id: string, payment: PaymentSubmission) {
+  const base = kind === 'consultation' ? '/consultations' : '/verifications';
+  return post<ConsultationRequest & VerificationRequest>(`${base}/${encodeURIComponent(id)}/payment`, payment);
+}
+
+export async function reviewPayment(kind: 'consultation' | 'verification', id: string, action: 'confirm' | 'reject', note = '') {
+  const base = kind === 'consultation' ? '/consultations' : '/verifications';
+  return post<ConsultationRequest & VerificationRequest>(`${base}/${encodeURIComponent(id)}/payment/review`, { action, note });
 }

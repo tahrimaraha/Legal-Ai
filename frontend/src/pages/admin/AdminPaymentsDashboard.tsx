@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { DollarSign, TrendingUp, Users, ShieldCheck, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
-import { listVerifications, listConsultations, recordLawyerPayout } from '../../lib/api';
+import { listVerifications, listConsultations, recordLawyerPayout, getPlatformPaymentAccounts, savePlatformPaymentAccounts } from '../../lib/api';
+import { PaymentAccountsForm } from '../../components/ui/PaymentAccountsForm';
+import { PaymentStatusCard } from '../../components/ui/PaymentStatusCard';
 import { StatCard } from '../../components/ui/StatCard';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { Button } from '../../components/ui/Button';
@@ -140,6 +142,53 @@ export default function AdminPaymentsDashboard() {
             : 'Monitor citizen payments and lawyer earning payouts for verification services'}
         </p>
       </div>
+
+      {/* Where clients pay verification fees */}
+      <PaymentAccountsForm
+        title={lang === 'bn' ? 'যাচাই ফি গ্রহণের একাউন্ট (প্ল্যাটফর্ম)' : 'Where clients pay verification fees (platform)'}
+        description={
+          lang === 'bn'
+            ? 'নাগরিক যাচাই অনুরোধের সময় এই নম্বর/একাউন্ট দেখবেন। পরামর্শ ফি সরাসরি আইনজীবীর নিজের একাউন্টে যায়।'
+            : 'Clients see these when requesting a lawyer verification. Consultation fees go directly to each lawyer’s own accounts.'
+        }
+        load={() => getPlatformPaymentAccounts().then((r) => r.accounts)}
+        save={savePlatformPaymentAccounts}
+      />
+
+      {/* Verification fees waiting for the admin to confirm */}
+      {(() => {
+        const toReview = verifications.filter((v) => v.payment?.status === 'submitted');
+        return (
+          <section className="space-y-3">
+            <h2 className="font-display text-lg font-bold text-ink">
+              {lang === 'bn' ? 'নিশ্চিত করার অপেক্ষায় যাচাই ফি' : 'Verification fees to confirm'}
+              <span className="ml-2 rounded bg-clay-tint px-2 py-0.5 font-mono text-xs text-clay-deep">{num(toReview.length)}</span>
+            </h2>
+            {toReview.length === 0 ? (
+              <p className="rounded border border-granite-soft bg-white p-4 text-sm text-granite">
+                {lang === 'bn' ? 'এই মুহূর্তে কোনো পেমেন্ট নিশ্চিত করার বাকি নেই।' : 'No payments waiting for confirmation.'}
+              </p>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2">
+                {toReview.map((v) => (
+                  <div key={v.id} className="space-y-2">
+                    <p className="text-xs text-granite">
+                      <strong className="text-ink">{v.citizenName}</strong> · {lang === 'bn' ? v.questionExcerptBn : v.questionExcerptEn}
+                    </p>
+                    <PaymentStatusCard
+                      payment={v.payment}
+                      kind="verification"
+                      recordId={v.id}
+                      canReview
+                      onChange={(payment) => setVerifications((list) => list.map((x) => (x.id === v.id ? { ...x, payment } : x)))}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        );
+      })()}
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

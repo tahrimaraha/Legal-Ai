@@ -209,6 +209,7 @@ export interface VerificationRequest {
   claimedByLawyerName?: string;
   assignedAt?: string;
   declineReason?: string;
+  payment?: PaymentRecord | null;
   verdict?: VerificationVerdict;
   createdAt: string;
   updatedAt: string;
@@ -245,7 +246,37 @@ export interface ConsultationRequest {
   lawyerPrivateNotes?: string;
   review?: { rating: number; text: string; createdAt: string };
   paymentProcessed?: boolean;
+  payment?: PaymentRecord | null;
   createdAt: string;
+}
+
+/** Manual wallet/bank payment submitted by a client (bKash, Nagad, Rocket, bank transfer). */
+export type PaymentMethod = 'bkash' | 'nagad' | 'rocket' | 'bank';
+export interface BankAccount {
+  bankName: string;
+  accountName: string;
+  accountNumber: string;
+  branch?: string;
+  routingNumber?: string;
+}
+export interface PaymentAccounts {
+  bkash?: string;
+  nagad?: string;
+  rocket?: string;
+  bank?: BankAccount;
+}
+export interface PaymentRecord {
+  method: PaymentMethod;
+  methodLabel: string;
+  payeeName: string;
+  payTo: string | BankAccount;
+  amount: number;
+  senderAccount: string;
+  trxId: string;
+  status: 'submitted' | 'confirmed' | 'rejected';
+  submittedAt: string;
+  reviewedAt?: string;
+  reviewNote?: string;
 }
 
 export interface ThreadMessage {

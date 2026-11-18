@@ -20,7 +20,7 @@ from app.models.app_record import AppRecord
 from app.models.enums import LawyerApprovalStatus, UserRole
 from app.models.profile import LawyerProfile
 from app.models.user import User
-from app.services import records
+from app.services import payments, records
 from app.services.lawyer_directory import load_lawyer
 from app.services.scheduling import validate_slot
 
@@ -42,6 +42,7 @@ class ConsultationIn(BaseModel):
     feeBdt: Optional[float] = None
     slots: list[Slot] = Field(default_factory=list, max_length=10)
     attachments: list[dict] = Field(default_factory=list, max_length=10)
+    payment: Optional[payments.PaymentIn] = None  # client paid the lawyer's bKash/Nagad/Rocket/bank account
 
 
 class AcceptIn(BaseModel):
@@ -161,6 +162,13 @@ async def create_consultation(
     # Fee comes from the lawyer's own fee table, never from the client.
     mode_fee = next((f["feeBdt"] for f in lawyer["fees"] if f["mode"] == payload.mode), None)
     fee = mode_fee if mode_fee is not None else lawyer["startingFeeBdt"]
+    accounts = await payments.lawyer_accounts(db, lawyer_uid)
+    payment = None
+    if payload.payment is not None:
+        payment = await payments.build_payment(db, payload.payment, accounts, lawyer["fullName"], float(fee or 0))
+    elif payments.methods(accounts) and fee:
+        raise ValidationAppError("Pay the consultation fee and enter the transaction ID to book.",
+                                 "বুক করতে পরামর্শ ফি পরিশোধ করে লেনদেন আইডি দিন।")
     now = records.now_iso()
     rec = await records.create(
         db,
@@ -182,6 +190,7 @@ async def create_consultation(
             "preferredSlots": [s.model_dump() for s in payload.slots],
             "attachments": payload.attachments,
             "timeline": [{"status": "requested", "timestamp": now, "note": "Consultation request submitted"}],
+            "payment": payment,
             "createdAt": now,
         },
         owner_id=user.id,
@@ -189,7 +198,8 @@ async def create_consultation(
     )
     await records.notify(
         db, lawyer_uid, "system", "New consultation request", "নতুন পরামর্শের অনুরোধ",
-        f"{user.full_name} requested a {payload.mode.replace('_', ' ')} consultation: {payload.topic}",
+        f"{user.full_name} requested a {payload.mode.replace('_', ' ')} consultation: {payload.topic}"
+        + (f" — paid ৳{payment['amount']:.0f} by {payment['methodLabel']} (TrxID {payment['trxId']}), please confirm." if payment else ""),
         f"{user.full_name} একটি পরামর্শের অনুরোধ করেছেন: {payload.topic}",
         f"/lawyer/consultations/{rec.id}",
     )

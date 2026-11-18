@@ -16,7 +16,9 @@ import {
   Pencil,
 } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
-import { getConsultationById, submitConsultationReview, updateConsultationDetails } from '../../lib/api';
+import { getConsultationById, submitConsultationReview, updateConsultationDetails, getLawyerPaymentAccounts, submitPayment, type PayeeAccounts, type PaymentSubmission } from '../../lib/api';
+import { PaymentStatusCard } from '../../components/ui/PaymentStatusCard';
+import { PaymentProcess } from '../../components/ui/PaymentProcess';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { Timeline } from '../../components/ui/Timeline';
 import { Button } from '../../components/ui/Button';
@@ -45,6 +47,10 @@ export default function CitizenConsultationDetailPage() {
   const [editTopic, setEditTopic] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editLoading, setEditLoading] = useState(false);
+
+  // Paying (or re-paying after a rejection) the lawyer's consultation fee
+  const [payOpen, setPayOpen] = useState(false);
+  const [payee, setPayee] = useState<PayeeAccounts | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -107,6 +113,23 @@ export default function CitizenConsultationDetailPage() {
     }
   };
 
+  const canPay = ['requested', 'accepted', 'scheduled'].includes(consultation.status)
+    && (!consultation.payment || consultation.payment.status === 'rejected');
+  const openPay = () => {
+    setPayee(null);
+    setPayOpen(true);
+    getLawyerPaymentAccounts(consultation.lawyerId)
+      .then(setPayee)
+      .catch(() => setPayee({ payeeName: consultation.lawyerName, accounts: {}, methods: [] }));
+  };
+  const handlePay = async (payment: PaymentSubmission | null) => {
+    if (payment) {
+      const updated = await submitPayment('consultation', consultation.id, payment);
+      setConsultation({ ...consultation, payment: updated.payment });
+    }
+    setPayOpen(false);
+  };
+
   return (
     <div className="space-y-6 font-body">
       {/* Top breadcrumb & badge */}
@@ -124,6 +147,12 @@ export default function CitizenConsultationDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Column: Details, Shared Docs, Review (span-7) */}
         <div className="lg:col-span-7 space-y-6">
+          <PaymentStatusCard
+            payment={consultation.payment}
+            kind="consultation"
+            recordId={consultation.id}
+            onPayAgain={canPay ? openPay : undefined}
+          />
           {/* Main Info Card */}
           <div className="rounded border border-granite bg-white p-6 shadow-sm space-y-4">
             <div className="flex items-start justify-between gap-3">
@@ -354,6 +383,9 @@ export default function CitizenConsultationDetailPage() {
             </Button>
           </div>
         </div>
+      </Modal>
+      <Modal open={payOpen} onClose={() => setPayOpen(false)} title={lang === 'bn' ? 'পরামর্শ ফি পেমেন্ট' : 'Consultation Payment'}>
+        <PaymentProcess amount={consultation.feeBdt} purpose="consultation" payee={payee} onSubmit={handlePay} onCancel={() => setPayOpen(false)} />
       </Modal>
     </div>
   );

@@ -9,7 +9,7 @@ import { Button } from '../../components/ui/Button';
 import { PaymentProcess } from '../../components/ui/PaymentProcess';
 import { useLang } from '../../context/LanguageContext';
 import { useChat } from '../../lib/useChat';
-import { getConversation, createVerificationRequest } from '../../lib/api';
+import { getConversation, createVerificationRequest, getPlatformPaymentAccounts, type PayeeAccounts, type PaymentSubmission } from '../../lib/api';
 import type { Citation, Conversation, Message } from '../../mocks/types';
 import { ShieldCheck, CheckCircle2, AlertCircle, ArrowRight, AlertTriangle, RotateCcw } from 'lucide-react';
 
@@ -26,7 +26,7 @@ export default function CitizenChatPage() {
   const [selectedMessageForVerif, setSelectedMessageForVerif] = useState<Message | null>(null);
   const [verifUrgency, setVerifUrgency] = useState<'normal' | 'urgent'>('normal');
   const [verifSuccess, setVerifSuccess] = useState(false);
-  const [verifLoading, setVerifLoading] = useState(false);
+  const [payee, setPayee] = useState<PayeeAccounts | null>(null);
 
   const endRef = useRef<HTMLDivElement>(null);
   const initialSentRef = useRef(false);
@@ -66,13 +66,12 @@ export default function CitizenChatPage() {
 
   const handleProceedToPayment = () => {
     setVerificationModalOpen(false);
+    setPayee(null);
     setPaymentModalOpen(true);
-  };
-
-  const handlePaymentComplete = () => {
-    setPaymentModalOpen(false);
-    // Process the actual verification request
-    handleConfirmVerification();
+    // Verification fees are paid to the platform's (admin) bKash / Nagad / Rocket / bank account.
+    getPlatformPaymentAccounts()
+      .then(setPayee)
+      .catch(() => setPayee({ payeeName: 'LEGAL AI', accounts: {}, methods: [] }));
   };
 
   const handleCancelPayment = () => {
@@ -80,25 +79,24 @@ export default function CitizenChatPage() {
     setVerificationModalOpen(true);
   };
 
-  const handleConfirmVerification = async () => {
+  /** Creates the verification request together with the payment (throws so the payment form shows errors). */
+  const handlePaymentSubmit = async (payment: PaymentSubmission | null) => {
     if (!selectedMessageForVerif) return;
-    setVerifLoading(true);
-    try {
-      // The question is the user message just before the answer being verified.
-      const answerIndex = chat.messages.findIndex((m) => m.id === selectedMessageForVerif.id);
-      const question = chat.messages.slice(0, Math.max(answerIndex, 0)).reverse().find((m) => m.role === 'user');
-      await createVerificationRequest({
-        conversationId: chat.conversationId || id || '',
-        messageId: selectedMessageForVerif.id,
-        questionText: question?.bodyBn || question?.bodyEn || 'নাগরিকের আইনি প্রশ্ন',
-        answerText: selectedMessageForVerif.bodyBn,
-        citations: selectedMessageForVerif.citations,
-        urgency: verifUrgency,
-      });
-      setVerifSuccess(true);
-    } finally {
-      setVerifLoading(false);
-    }
+    // The question is the user message just before the answer being verified.
+    const answerIndex = chat.messages.findIndex((m) => m.id === selectedMessageForVerif.id);
+    const question = chat.messages.slice(0, Math.max(answerIndex, 0)).reverse().find((m) => m.role === 'user');
+    await createVerificationRequest({
+      conversationId: chat.conversationId || id || '',
+      messageId: selectedMessageForVerif.id,
+      questionText: question?.bodyBn || question?.bodyEn || 'নাগরিকের আইনি প্রশ্ন',
+      answerText: selectedMessageForVerif.bodyBn,
+      citations: selectedMessageForVerif.citations,
+      urgency: verifUrgency,
+      payment: payment ?? undefined,
+    });
+    setPaymentModalOpen(false);
+    setVerifSuccess(true);
+    setVerificationModalOpen(true);
   };
 
   const askAboutSection = (c: Citation) => {
@@ -335,8 +333,10 @@ export default function CitizenChatPage() {
       >
         <PaymentProcess
           amount={verifUrgency === 'urgent' ? 300 : 200}
+          purpose="verification"
           urgency={verifUrgency}
-          onPaymentComplete={handlePaymentComplete}
+          payee={payee}
+          onSubmit={handlePaymentSubmit}
           onCancel={handleCancelPayment}
         />
       </Modal>
